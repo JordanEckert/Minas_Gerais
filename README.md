@@ -15,4 +15,22 @@ The government supported this study to obtain data about heavy metal content in 
 
 •	Are the heavy metal contents in rock related to the heavy metal contents in soil?
 
+----
 
+Tips on EDA from Billor: 
+
+``I am sure you will be thinking about these, but I just wanted to provide  afew suggestions anyway…
+
+Check the spatial correlation for each heavy metals variable (variagrom ?).
+
+Check the correlation between the heavy metals correlation (Correlation Matrix).
+
+Check the correlation between soil properties  and Heavy Metal Cont levels (20 variables).
+
+.. A good EDA is needed for this data..
+
+Many PQLs are in the data table..
+
+We need explanation about these. JJ has information and will share it with you.
+
+Anyway, hope that you enjoy this project. It is a good opportunity to learn new methodology. ""
