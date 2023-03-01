@@ -23,7 +23,7 @@ Tips on EDA from Billor:
 
 Check the spatial correlation for each heavy metals variable (variagrom ?).
 
-Check the correlation between the heavy metals correlation (Correlation Matrix).
+Check the correlation between the heavy metals' correlation (Correlation Matrix).
 
 Check the correlation between soil properties  and Heavy Metal Cont levels (20 variables).
 
