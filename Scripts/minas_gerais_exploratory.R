@@ -9,6 +9,8 @@ library(adegraphics)  # Graphical representation
 library(spdep)        # Spatial dependency
 library(adespatial)   # Multivariate spatial analysis
 library(readxl)       # Loading excel dataset
+library(tidyverse)    # Data manipulation
+library(magrittr)     # Pipe operator
 
 # Loading database
 datum <- read_excel("/Users/basecamp/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
@@ -22,5 +24,10 @@ str(datum)
 
 # Replacing '<PQL' values with half of the PQL for the heavy metal
 
-# Coercing structures to be numeric where needed
 
+# Coercing structures to be numeric where needed
+## BELOW IS EXAMPLE CODE:
+# data <- data.frame(matrix(sample(1:40), 4, 10, dimnames = list(1:4, LETTERS[1:10])))
+# cols <- c("A", "C", "D", "H")
+#
+# data %<>% mutate_at(cols, factor)
