@@ -11,12 +11,16 @@ library(adespatial)   # Multivariate spatial analysis
 library(readxl)       # Loading excel dataset
 
 # Loading database
-database <- read_excel("/Users/basecamp/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
+datum <- read_excel("/Users/basecamp/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
 
-# Structure of database
-str(database)
+# Checking the structure of the database
+str(datum)
 
-## From the structure, we see that the heavy metals are classified as characters (because of <PCL values)
-##
+## Known that a lot of the data will have <PQL values when the heavy metal is below limit ...
+## This value is causing a lot of numeric variables to register as characters ...
+## In literature, commonly use half of the PQL in the samples which registered heavy metal content below the PQL...
 
+# Replacing '<PQL' values with half of the PQL for the heavy metal
+
+# Coercing structures to be numeric where needed
 
