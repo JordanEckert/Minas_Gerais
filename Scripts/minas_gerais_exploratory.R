@@ -10,6 +10,7 @@ library(spdep)        # Spatial dependency
 library(adespatial)   # Multivariate spatial analysis
 library(readxl)       # Loading excel dataset
 library(tidyverse)    # Data manipulation
+library(dplyr)        # Data manipulation
 library(magrittr)     # Pipe operator
 
 # Loading database
@@ -23,7 +24,39 @@ str(datum)
 ## In literature, commonly use half of the PQL in the samples which registered heavy metal content below the PQL...
 ## PQL Limits are found in the PQL.xlsx file
 
+# Forcing dataset to tibble
+df = as_tibble(datum)
+
 # Replacing '<PQL' values with half of the PQL for the heavy metal
+# starwars %>%
+#   mutate(
+#     # Replace missings, but leave everything else alone
+#     hair_color = case_match(hair_color, NA ~ "unknown", .default = hair_color),
+#     # Replace some, but not all, of the species
+#     species = case_match(
+#       species,
+#       "Human" ~ "Humanoid",
+#       "Droid" ~ "Robot",
+#       c("Wookiee", "Ewok") ~ "Hairy",
+#       .default = species
+#     ),
+#     .keep = "used"
+#   )
+
+df %>%
+  mutate(
+    # Replace the <PQL values for the heavy metals
+    Ag = case_match(
+      Ag,
+      ID == "UFV_1" & Ag == "<PQL" ~ ".215",
+      .default = Ag
+    )
+  )
+
+
+
+
+
 
 
 # Coercing structures to be numeric where needed
