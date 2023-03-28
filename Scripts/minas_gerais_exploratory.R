@@ -21,6 +21,23 @@ str(datum)
 
 ## Known that a lot of the data will have <PQL values when the heavy metal is below limit ...
 ## This value is causing a lot of numeric variables to register as characters ...
+
+# Forcing  columns to be numerics
+datum[,c(1:3, 5:24)] = lapply(datum[,c(1:3, 5:24)], as.numeric)
+
+## It mentions NA are introduced by coercion; lets find where the new NA values are ...
+
+# Finding where NA occur
+apply(is.na(datum[,c(1:3, 5:24)]), 2, which)
+
+## NA occurs in ID at 165A....
+## NA occurs in Latitude, Longitude are actually missing in orginal dataset ....
+## Heavy metals have mixes of NA and values that were <PQL ...
+
+#### SHOULD I TREAT NA VALUES THE SAME AS <PQL? ####
+#### This will maybe change how I go about this. ####
+
+
 ## In literature, commonly use half of the PQL in the samples which registered heavy metal content below the PQL...
 ## PQL Limits are found in the PQL.xlsx file
 
@@ -42,21 +59,6 @@ df = as_tibble(datum)
 #     ),
 #     .keep = "used"
 #   )
-
-df %>%
-  mutate(
-    # Replace the <PQL values for the heavy metals
-    Ag = case_match(
-      Ag,
-      ID == "UFV_1" & Ag == "<PQL" ~ ".215",
-      .default = Ag
-    )
-  )
-
-
-
-
-
 
 
 # Coercing structures to be numeric where needed
