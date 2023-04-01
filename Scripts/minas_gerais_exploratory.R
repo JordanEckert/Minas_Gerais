@@ -1,69 +1,80 @@
 # The purpose of this script is to perform exploratory spatial data analysis (ESDA) on the Minas Gerais database
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 
+library(mise)
+mise()
+
 # Attach packages
-library(umap)         # Uniform manifold approximations and projections for exploring clustering patterns
-library(sp)           # Management of spatial data
-library(ade4)         # Multivariate analysis
-library(adegraphics)  # Graphical representation
-library(spdep)        # Spatial dependency
-library(adespatial)   # Multivariate spatial analysis
 library(readxl)       # Loading excel dataset
 library(tidyverse)    # Data manipulation
 library(dplyr)        # Data manipulation
 library(magrittr)     # Pipe operator
 
-# Loading database
+
+library(umap)         # Uniform manifold approximations and projections for exploring clustering patterns
+library(pcds)         # Proximity catch digraphs for spatial classification
+library(sp)           # Management of spatial data
+library(terra)        # Spatial data analysis
+library(ade4)         # Multivariate analysis
+library(adegraphics)  # Graphical representation
+library(spdep)        # Spatial dependency
+library(adespatial)   # Multivariate spatial analysis
+
+# Loading main database
 datum <- read_excel("/Users/basecamp/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
 
-# Checking the structure of the database
+# PQL limits file
+PQL <- read_excel("/Users/basecamp/DataspellProjects/Minas_Gerais/Database/PQL.xlsx", skip = 1)
+PQL <- PQL[-c(26:32),]  # Removing extra information not needed in R
+
+# Checking the structure of the databases
 str(datum)
+str(PQL)
+
+# Viewing databases
+View(datum)
+View(PQL)
+
+# Changing first four variables
+datum$ID = as.numeric(datum$ID)
+datum$Lab = as.factor(datum$Lab)
+datum$Longitude = as.numeric(datum$Longitude)
+datum$Latitude = as.numeric(datum$Latitude)
+
+# Changing character to numerics in PQL
+PQL <- PQL %>% mutate_at(c("UFV1", "UFOP", "CETEC", "UFV_2"), as.numeric)
+
+## NAs introduced where "-" values was...
+
+# Change PQL NA to 0
+PQL[is.na(PQL)] <- 0
 
 ## Known that a lot of the data will have <PQL values when the heavy metal is below limit ...
 ## This value is causing a lot of numeric variables to register as characters ...
-
-# Forcing  columns to be numerics
-datum[,c(1:3, 5:24)] = lapply(datum[,c(1:3, 5:24)], as.numeric)
-
-## It mentions NA are introduced by coercion; lets find where the new NA values are ...
-
-# Finding where NA occur
-apply(is.na(datum[,c(1:3, 5:24)]), 2, which)
-
-## NA occurs in ID at 165A....
-## NA occurs in Latitude, Longitude are actually missing in orginal dataset ....
-## Heavy metals have mixes of NA and values that were <PQL ...
-
-#### SHOULD I TREAT NA VALUES THE SAME AS <PQL? ####
-#### This will maybe change how I go about this. ####
-
-
 ## In literature, commonly use half of the PQL in the samples which registered heavy metal content below the PQL...
-## PQL Limits are found in the PQL.xlsx file
 
-# Forcing dataset to tibble
-df = as_tibble(datum)
+# Changing table to be half values
+Elemento = as.factor(PQL$Elemento)
+PQL <- cbind(Elemento, PQL[,2:ncol(PQL)]/2)
+View(PQL)
 
-# Replacing '<PQL' values with half of the PQL for the heavy metal
-# starwars %>%
-#   mutate(
-#     # Replace missings, but leave everything else alone
-#     hair_color = case_match(hair_color, NA ~ "unknown", .default = hair_color),
-#     # Replace some, but not all, of the species
-#     species = case_match(
-#       species,
-#       "Human" ~ "Humanoid",
-#       "Droid" ~ "Robot",
-#       c("Wookiee", "Ewok") ~ "Hairy",
-#       .default = species
-#     ),
-#     .keep = "used"
-#   )
+# Replacing <PQL values
+# Loop through each relevant column of data frame
+for (col in names(datum[,5:24])) {
+  # Check if the column contains a "<PQL" value
+  if ("<PQL" %in% datum[[col]]) {
+    # Identify where "<PQL" values are
+    index <- which(datum[[col]] == "<PQL", arr.ind = T)
+    for(i in index){
+      # Find the PQL value needed
+      pql_val <- PQL[PQL$Elemento == col, as.character(datum$Lab[i])]
+      # Replace the "<PQL" value with the corresponding PQL value
+      datum[i, col] <- as.character(pql_val)
+    }
+  }
+}
+
+# Coerce all mineral vectors to numerics
+datum[,5:24] <- lapply(datum[,5:24], as.numeric)
 
 
-# Coercing structures to be numeric where needed
-## BELOW IS EXAMPLE CODE:
-# data <- data.frame(matrix(sample(1:40), 4, 10, dimnames = list(1:4, LETTERS[1:10])))
-# cols <- c("A", "C", "D", "H")
-#
-# data %<>% mutate_at(cols, factor)
