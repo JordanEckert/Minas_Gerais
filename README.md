@@ -31,12 +31,9 @@ Check the correlation between soil properties  and Heavy Metal Cont levels (20 v
 
 Many PQLs are in the data table..
 
-We need explanation about these. JJ has information and will share it with you.
-
 Anyway, hope that you enjoy this project. It is a good opportunity to learn new methodology. ""
 
 ----
 Additional Data Cleaning:
 
 - There seems to be both missing (NA) and (<PQL) values. Are they to be treated the same way?
-- 
