@@ -1,7 +1,6 @@
 # Minas_Gerais
 Classification and exploratory analysis of heavy metal contaminants in Minas Gerais' soil. This is joint work with Nedret and JJ.
 
-
 <b>Sampling design:</b>
 The database comprises contaminated and uncontaminated soils, but for this study, I think that we should restrict uncontaminated samples (714 samples). Samples were collected to represent geological and pedological diversity. Sampling was avoided close to potential human disturbances such as roads, mining sites, and pastures. Each sample represents five individual samples collected and proportionally mixed in the lab. All analyses were performed in the composed sample. To avoid heavy metal contamination, we collected with inox tools.
 
