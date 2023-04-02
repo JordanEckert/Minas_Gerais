@@ -1,6 +1,6 @@
 # The purpose of this script is to perform spatial multivariate, multiscale data analysis  on the Minas Gerais database
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
-### More details on data cleaning process / ESDA in minas_gerais_exploratory.R
+### More details on data cleaning process / ESDA in minas_gerais_EDA.R
 
 library(mise)
 mise()
