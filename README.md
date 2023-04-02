@@ -17,7 +17,7 @@ The government supported this study to obtain data about heavy metal content in 
 
 Files are organized the following way:
 
-- <u> minas_gerais_EDA.R:</u> This file details the data cleaning process as well as creates the leaflet graphic, boxplots, scatterplots. Additionally, this file is used for correlation analysis and UMAP
+- <u> minas_gerais_EDA.R:</u> This file details the data cleaning process as well as creates the leaflet graphic, boxplots, scatterplots. Additionally, this file is used for correlation analysis, principal component analysis, and UMAP
 - <u> minas_gerais_ESDA.R:</u> This file details more indepth spatial methods including variograms and Moran's coefficient calculation. MULTISPATI analysis is also done to describe possible spatial patternings
 - <u> minas_gerais_analysis.R:</u> This file details multiscale analysis with Moran's Eigenvector Maps. Additional spatial regression is performed. Finally, spatial regression is compared to machine learning methods. 
 

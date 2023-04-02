@@ -256,6 +256,9 @@ for (i in which(corr_flat3$cor > .50, arr.ind = T)){
 ## Therefore, we need to perform new analysis accounting for spatial interactions ....
 ## This will be done in the minas_gerais_ESDA file since it requires changing data frame into SpatialPointDataFrame object ....
 
+#### Exploratory Data Analysis - Principal Components ####
+
+
 #### Exploratory Data Analysis - Topological Data Analysis ####
 
 ## NOTE: May require tuning for number of neighbors, metric (maybe pearson instead of euclidean?),
