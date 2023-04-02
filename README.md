@@ -17,9 +17,7 @@ The government supported this study to obtain data about heavy metal content in 
 
 ----
 
-Tips on EDA from Billor: 
-
-``I am sure you will be thinking about these, but I just wanted to provide  afew suggestions anyway…
+        Tips on EDA from Billor: 
 
 Check the spatial correlation for each heavy metals variable (variagrom ?).
 
@@ -34,6 +32,24 @@ Many PQLs are in the data table..
 Anyway, hope that you enjoy this project. It is a good opportunity to learn new methodology. ""
 
 ----
-Additional Data Cleaning:
+      Additional Data Cleaning:
 
-- There seems to be both missing (NA) and (<PQL) values. Are they to be treated the same way?
+- How should missing data be handled? - Currently recorded as 0, but imputation possible
+- Zonation of data? How should we be handling the regions? Right now it's best guess
+
+----
+            Need to Complete:
+
+- Pairwise Scatterplots 
+- Multivariate variograms (maybe univariates instead?)
+- Additional ESDA?
+
+
+- Moran's eigenvector maps
+- PCD grouping for the samples?
+  - If using PCD, also include UMAP + PCD
+- UMAP providing grouping for the samples?
+- Spatial regression
+- Spatial multivariate response statistical learning
+
+----
