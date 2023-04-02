@@ -12,9 +12,8 @@ library(magrittr)     # Pipe operator
 library(leaflet)      # Creating geographic maps
 library(corrplot)     # Correlation plots
 library(Hmisc)        # Correlation analysis
-library(gstat)        # Geostatistics functions
+library(gstat)        # Distance and other geospatial functions
 library(sp)           # Spatial analysis
-
 library(adespatial)   # Multivariate variogram
 
 #### Data Cleaning ####
@@ -45,7 +44,6 @@ PQL[is.na(PQL)] <- 0
 Elemento = as.factor(PQL$Elemento)
 PQL <- cbind(Elemento, PQL[,2:ncol(PQL)]/2)
 
-
 # Loop through each relevant column of data frame
 for (col in names(datum[,5:24])) {
   # Check if the column contains a "<PQL" value
@@ -67,9 +65,6 @@ datum[,4:24] <- lapply(datum[,4:24], as.numeric)
 # Remove column separating heavy metal and soil properties
 datum$...25 <- NULL
 
-
-## ph KCl is a character variable, because of "-" token....
-
 # Coerce ph KCL to be numeric
 datum$`pH KCl` <- as.numeric(datum$`pH KCl`)
 
@@ -78,12 +73,6 @@ datum[,4:42][is.na(datum[,4:42])] <- 0
 
 # Removing values that did not have a latitude, longitude coordinate
 datum = na.omit(datum)
-
-# Final checks for both datasets
-View(datum)
-View(PQL)
-
-str(datum)
 
 #### Exploratory Spatial Data Analysis ####
 
