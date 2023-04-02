@@ -1,6 +1,7 @@
 # Minas_Gerais
 Classification and exploratory analysis of heavy metal contaminants in Minas Gerais' soil. This is joint work with Nedret and JJ.
 
+
 <b>Sampling design:</b>
 The database comprises contaminated and uncontaminated soils, but for this study, I think that we should restrict uncontaminated samples (714 samples). Samples were collected to represent geological and pedological diversity. Sampling was avoided close to potential human disturbances such as roads, mining sites, and pastures. Each sample represents five individual samples collected and proportionally mixed in the lab. All analyses were performed in the composed sample. To avoid heavy metal contamination, we collected with inox tools.
 
@@ -14,6 +15,12 @@ The government supported this study to obtain data about heavy metal content in 
 •	Could we predict the heavy metal contents by the soil properties?
 
 •	Are the heavy metal contents in rock related to the heavy metal contents in soil?
+
+Files are organized the following way:
+
+- <u> minas_gerais_EDA.R:</u> This file details the data cleaning process as well as creates the leaflet graphic, boxplots, scatterplots. Additionally, this file is used for correlation analysis and UMAP
+- <u> minas_gerais_ESDA.R:</u> This file details more indepth spatial methods including variograms and Moran's coefficient calculation. MULTISPATI analysis is also done to describe possible spatial patternings
+- <u> minas_gerais_analysis.R:</u> This file details multiscale analysis with Moran's Eigenvector Maps. Additional spatial regression is performed. Finally, spatial regression is compared to machine learning methods. 
 
 ----
 
