@@ -1,10 +1,51 @@
-# The purpose of this script is to perform exploratory spatial data analysis (ESDA) on the Minas Gerais database
+# The purpose of this script is to perform exploratory data analysis on the Minas Gerais database
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 
 library(mise)
 mise()
 
 ## Global Functions
+
+# ++++++++++++++++++++++++++++
+# plotUMAP
+# ++++++++++++++++++++++++++++
+### Creates a plot for the UMAP projections ###
+
+ plotUMAP = function(x, labels,
+          main="UMAP Projections",
+          colors=c("#ff7f00", "#e377c2", "#17becf", "purple", "black", "green"),
+          pad=0.1, cex=0.6, pch=19, add=FALSE, legend.suffix="",
+          cex.main=1, cex.legend=0.85) {
+ 
+   layout <- x
+   if (is(x, "umap")) {
+     layout <- x$layout
+   } 
+  
+   xylim <- range(layout)
+   xylim <- xylim + ((xylim[2]-xylim[1])*pad)*c(-0.5, 0.5)
+   if (!add) {
+     par(mar=c(0.2,0.7,1.2,0.7), ps=10)
+     plot(xylim, xylim, type="n", axes=F, frame=F)
+     rect(xylim[1], xylim[1], xylim[2], xylim[2], border="#aaaaaa", lwd=0.25)  
+   }
+   points(layout[,1], layout[,2], col=colors[as.integer(labels)],
+          cex=cex, pch=pch)
+   mtext(side=3, main, cex=cex.main)
+ 
+   labels.u <- unique(labels)
+   legend.pos <- "topleft"
+   legend.text <- as.character(labels.u)
+   if (add) {
+     legend.pos <- "bottomleft"
+     legend.text <- paste(as.character(labels.u), legend.suffix)
+   }
+ 
+   legend(legend.pos, legend=legend.text, inset=0.03,
+          col=colors[as.integer(labels.u)],
+          bty="n", pch=pch, cex=cex.legend)
+ }
+ 
 # ++++++++++++++++++++++++++++
 # flattenCorrMatrix
 # ++++++++++++++++++++++++++++
@@ -15,10 +56,10 @@ mise()
 flattenCorrMatrix <- function(cormat, pmat) {
   ut <- upper.tri(cormat)
   data.frame(
-    row = rownames(cormat)[row(cormat)[ut]],
-    column = rownames(cormat)[col(cormat)[ut]],
-    cor  =(cormat)[ut],
-    p = pmat[ut]
+    row <- rownames(cormat)[row(cormat)[ut]],
+    column <- rownames(cormat)[col(cormat)[ut]],
+    cor  <-(cormat)[ut],
+    p <- pmat[ut]
   )
 }
 
@@ -32,10 +73,11 @@ library(leaflet)      # Creating geographic maps
 library(corrplot)     # Correlation plots
 library(Hmisc)        # Correlation analysis
 library(adespatial)   # Multivariate variogram
+library(geoR)         # Distance matrix
 
 # Attach packages - Topological Data Analysis
 library(umap)         # Uniform manifold approximations and projections for exploring clustering patterns
-library(pcds)         # Proximity catch digraphs for spatial classification
+
 
 #### Data Cleaning ####
 # Loading main database
@@ -50,10 +92,10 @@ str(datum)
 str(PQL)
 
 # Changing descriptive variables
-datum$ID = NULL
-datum$Lab = as.factor(datum$Lab)
-datum$Longitude = as.numeric(datum$Longitude)
-datum$Latitude = as.numeric(datum$Latitude)
+datum$ID <- NULL
+datum$Lab <- as.factor(datum$Lab)
+datum$Longitude <- as.numeric(datum$Longitude)
+datum$Latitude <- as.numeric(datum$Latitude)
 
 ## NAs that were introduced where "-" values was...
 
@@ -72,7 +114,7 @@ PQL[is.na(PQL)] <- 0
 ## In literature, commonly use half of the PQL in the samples which registered heavy metal content below the PQL...
 
 # Changing given PQL values to be the half values we will use
-Elemento = as.factor(PQL$Elemento)
+Elemento <- as.factor(PQL$Elemento)
 PQL <- cbind(Elemento, PQL[,2:ncol(PQL)]/2)
 
 ## Now we are ready to replace <PQL values....
@@ -115,7 +157,7 @@ datum$`pH KCl` <- as.numeric(datum$`pH KCl`)
 datum[,4:42][is.na(datum[,4:42])] <- 0
 
 # Removing values that did not have a latitude, longitude coordinate
-datum = na.omit(datum)
+datum <- na.omit(datum)
 
 # Final checks for both datasets
 View(datum)
@@ -147,13 +189,12 @@ for(cols in colnames(datum[24:42])){
 }
 
 # Pairwise scatterplot for each metal and the soil properties
-
 ## NEEDS TO BE DONE STILL!
 
 #### Exploratory Data Analysis - Correlation ####
 # Correlation plots - Correlation of heavy minerals only
-corr = cor(datum[,4:23])
-cor_plot = corrplot(corr, type = "upper", method = "shade")
+corr <- cor(datum[,4:23])
+cor_plot <- corrplot(corr, type = "upper", method = "shade")
 cor_plot
 
 ## From the correlation plot there seems to be some variables that might be more correlated ...
@@ -171,8 +212,8 @@ for (i in which(corr_flat$cor > .50, arr.ind = T)){
 ## Next I want to see if there are correlations in just the soil properties ...
 
 # Correlation Plots - Correlation of soil properties only
-corr3 = cor(datum[,24:42])
-cor_plot2 = corrplot(corr3, type = "upper", method = "shade")
+corr3 <- cor(datum[,24:42])
+cor_plot2 <- corrplot(corr3, type = "upper", method = "shade")
 cor_plot2
 
 ## Same as before, there seems to be some highly correlated soil properties ....
@@ -190,10 +231,10 @@ for (i in which(corr_flat2$cor > .50, arr.ind = T)){
 ## Finally, let's look at how the two correlate together ....
 
 # Correlation Plots - Heavy Metals and Soil Properties 
-corr5 = cor(datum[,4:42])
+corr5 <- cor(datum[,4:42])
 corr5
 
-cor_plot3 = corrplot(corr5, type = "upper", method = "shade")
+cor_plot3 <- corrplot(corr5, type = "upper", method = "shade")
 cor_plot3
 
 corr6 <- rcorr(as.matrix(datum[4:42]))
@@ -213,16 +254,58 @@ for (i in which(corr_flat3$cor > .50, arr.ind = T)){
 ##
 ## However, all correlation analysis has not accounted for spatial autocorrelations ...
 ## Therefore, we need to perform new analysis accounting for spatial interactions ....
+## This will be done in the minas_gerais_ESDA file since it requires changing data frame into SpatialPointDataFrame object ....
 
-multi_vario = variogmultiv(datum[,4:23], datum[,1:3])
-plot(multi_vario$d, multi_vario$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
+#### Exploratory Data Analysis - Topological Data Analysis ####
 
-#### CODE FOR SINGLE VARIABLE VARIOGRAM
-# # Transform data frame into a SpatialPointDataFrame
-# coordinates(datum)=~ Longitude + Latitude
-# class(datum)
-#
-# # Variogram
-# vario_datum = variogram(B ~ 1, data = datum)
-# plot(vario_datum)
+## NOTE: May require tuning for number of neighbors, metric (maybe pearson instead of euclidean?),
+## or just general tuning...
+help(umap.defaults)     # For more information about default settings ....
+
+## First, let's try to see if there are some natural structures in the data by UMAP ....
+
+# Creating UMAP of heavy metals by Lab
+datum.umap <- umap(datum[,4:23], labels = datum$Lab)
+
+# Plot of heavy metals UMAP
+plotUMAP(datum.umap, labels = datum$Lab)
+
+# Individual UMAPs for each heavy metal by Lab
+for(col in colnames(datum[,4:23])){
+  datum.umap <- umap(as.matrix(datum[[col]]), labels = datum$Lab)
+  plotUMAP(datum.umap, labels = datum$Lab, main = paste("UMAP Projection of", col))
+}
+
+# Creating UMAP of soil properties by Lab
+datum.umap <- umap(datum[,4:23], labels = datum$Lab)
+
+# Plot of soil properties UMAP
+plotUMAP(datum.umap, labels = datum$Lab)
+
+# Individual UMAPs for each soil property by Lab
+for(col in colnames(datum[,24:42])){
+  datum.umap <- umap(as.matrix(datum[[col]]), labels = datum$Lab)
+  plotUMAP(datum.umap, labels = datum$Lab, main = paste("UMAP Projection of", col))
+}
+
+# Creating UMAP of heavy metals and soil properties by Lab
+datum.umap <- umap(datum[,4:42], labels = datum$Lab)
+
+# Plot of previous UMAP
+plotUMAP(datum.umap, labels = datum$Lab)
+
+# Distance matrix
+dists <- as.matrix(dist(datum[,1:2]))
+dists
+
+# UMAP of Distances between observations
+datum.umap <- umap(dists, input = "dist")
+plotUMAP(datum.umap, labels = datum$Lab)
+
+# Creating Zones based on latitude / longitutde
+# UMAP based on Zoning
+# Plot of zoned UMAP
+
+
+
 
