@@ -81,7 +81,6 @@ datum = na.omit(datum)
 multi_vario = variogmultiv(datum[,4:23], datum[,1:3])
 plot(multi_vario$d, multi_vario$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
 
-
 # # Transform data frame into a SpatialPointDataFrame
 # coordinates(datum)=~ Longitude + Latitude
 # class(datum)
