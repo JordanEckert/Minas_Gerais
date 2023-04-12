@@ -4,6 +4,12 @@
 library(mise)
 mise()
 
+## Common methodologies used ##
+# PCA
+# k-means clustering
+# correlation matrix
+# Variogram
+
 ## Global Functions
 
 # ++++++++++++++++++++++++++++
@@ -92,6 +98,9 @@ str(datum)
 str(PQL)
 
 # Changing descriptive variables
+
+## AFTER ZONATION, ADD COORDINATES FOR UFOP LAB BASED ON ZONE MIDDLE
+
 datum$ID <- NULL
 datum$Lab <- as.factor(datum$Lab)
 datum$Longitude <- as.numeric(datum$Longitude)
@@ -150,14 +159,19 @@ datum$...25 <- NULL
 datum$`pH KCl` <- as.numeric(datum$`pH KCl`)
 
 ### THERE NEEDS TO BE A DISCUSSION ON HOW TO HANDLE NA DATA ...
-### DOES THE DATA NEED TO BE IMPUTED? IS NA ESSENTIALLY 0?
-### RIGHT NOW NA ARE TREATED AS 0, IF THIS IS NOT RIGHT NEED TO CHANGE ANALYSIS ...
+
+## Look at the column, if its 80% missing, then remove column
+
+## Imputation the assumption is data is missing not at random ....
+## Using correlation to help predict content from absent samples
 
 # NA Values to 0 for datum
 datum[,4:42][is.na(datum[,4:42])] <- 0
 
 # Removing values that did not have a latitude, longitude coordinate
 datum <- na.omit(datum)
+
+
 
 # Final checks for both datasets
 View(datum)
