@@ -69,7 +69,7 @@ datum$...25 <- NULL
 datum$`pH KCl` <- as.numeric(datum$`pH KCl`)
 
 # NA Values to 0 for datum
-datum[,4:42][is.na(datum[,4:42])] <- 0
+datum[,4:43][is.na(datum[,4:43])] <- 0
 
 # Removing values that did not have a latitude, longitude coordinate
 datum = na.omit(datum)

@@ -1,9 +1,6 @@
 # The purpose of this script is to perform exploratory data analysis on the Minas Gerais database
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 
-library(mise)
-mise()
-
 ## Common methodologies used ##
 # PCA
 # k-means clustering
@@ -16,8 +13,7 @@ mise()
 # plotUMAP
 # ++++++++++++++++++++++++++++
 ### Creates a plot for the UMAP projections ###
-
- plotUMAP = function(x, labels,
+plotUMAP = function(x, labels,
           main="UMAP Projections",
           colors=c("#ff7f00", "#e377c2", "#17becf", "purple", "black", "green"),
           pad=0.1, cex=0.6, pch=19, add=FALSE, legend.suffix="",
@@ -129,7 +125,7 @@ PQL <- cbind(Elemento, PQL[,2:ncol(PQL)]/2)
 ## Now we are ready to replace <PQL values....
 
 # Loop through each relevant column of data frame
-for (col in names(datum[,5:24])) {
+for (col in names(datum[,4:24])) {
   # Check if the column contains a "<PQL" value
   if ("<PQL" %in% datum[[col]]) {
     # Identify where "<PQL" values are
@@ -142,6 +138,8 @@ for (col in names(datum[,5:24])) {
     }
   }
 }
+
+View(datum)
 
 # Coerce all newly changed columns to be numerics
 datum[,4:24] <- lapply(datum[,4:24], as.numeric)
@@ -166,12 +164,10 @@ datum$`pH KCl` <- as.numeric(datum$`pH KCl`)
 ## Using correlation to help predict content from absent samples
 
 # NA Values to 0 for datum
-datum[,4:42][is.na(datum[,4:42])] <- 0
+datum[,4:43][is.na(datum[,4:43])] <- 0
 
-# Removing values that did not have a latitude, longitude coordinate
+# Removing values that did not have a latitude, longitude coordinate 
 datum <- na.omit(datum)
-
-
 
 # Final checks for both datasets
 View(datum)
