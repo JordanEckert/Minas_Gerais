@@ -11,6 +11,12 @@ library(leaflet)      # Creating geographic maps
 library(corrplot)     # Correlation plots
 library(Hmisc)        # Correlation analysis]
 library(gstat)        # Variogram
+library(ade4)         # Spatial analysis suite
+library(adespatial)   # Spatial analysis suite
+library(adegraphics)  # Spatial plotting suite
+library(sf)           # Spatial analysis suite
+library(spdep)        # Spatial analysis suite
+library(sp)           # Spatial analysis suite
 
 # ++++++++++++++++++++++++++++
 # flattenCorrMatrix
@@ -214,7 +220,6 @@ for (i in which(corr_flat3$cor > .50, arr.ind = T)){
 ## Therefore, we need to perform new analysis accounting for spatial interactions ....
 ## This will be done in the minas_gerais_ESDA file since it requires changing data frame into SpatialPointDataFrame object ....
 
-
 #### Exploratory Spatial Analysis - Variograms ####
 
 for(i in 5:43){
@@ -234,5 +239,89 @@ plot(multi_vario_soil$d, multi_vario_soil$var,type = 'b', pch = 20, xlab = "Dist
 # Multivariate Variogram for Total - strictly equivalent to summing individual ones
 multi_vario = variogmultiv(datum[,5:43], datum[,1:2])
 plot(multi_vario$d, multi_vario$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
+
+#### Spatial Data Analysis - Kriging ####
+
+#### Spatial Data Analysis - Spatial Weighting Matrix ####
+
+## First I need to turn my dataset into a spatial object for use in adepsatial and sf
+## The plan is to go from a points sampling design to a get a rough polygon based off zones
+## Then, we create a spatial neighborhood and the spatial weighting matrix to give the orthogonal spatial vectors
+## Finally, we can perform spatial multivariate analysis using Moran's Eigenvalue Maps
+
+# Define projection string and CRS
+prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+my_projection <- st_crs(prj4string)
+
+# Convert datum into sf object
+spatial_datum <- st_as_sf(datum, coords = c("Longitude", "Latitude"), crs = my_projection)
+
+## Checking sf object
+# str(spatial_datum)
+# class(spatial_datum)
+# st_is_valid(spatial_datum)
+
+# Plot of zonations
+plot(spatial_datum[,1])
+
+# Plot of labs
+plot(spatial_datum[,2])
+
+# Create polygon area around each zone
+buf <- st_buffer(spatial_datum, dist = 40000)
+plot(buf[,1])
+
+# Creating spatial neighborhood 
+nb.datum <- poly2nb(buf$geometry) # From polygons calculated above
+
+# Simple row standardization for spatial weight matrix (SWM)
+mxy <- as.matrix(datum[,c(1,2)]) # Matrix of coordinates
+listwdatum <- nb2listw(nb.datum)
+
+#### Spatial Data Analysis - Univariate Spatial Predictors ####
+
+## Spatial predictors are orthogonal vectors stored in an object of class orthobasisSp
+## Allows for Moran's Eigenvalue Maps (MEM) based on the diagonalization of a doubly-centered SWM
+## MEMs maximize the Moran's coefficient of spatial autocorrelation
+
+# Calculate MEM
+mem.datum <- mem(listwdatum)
+mem.datum
+
+# Plot of first few relevant MEM
+plot(mem.datum[,c(1, 2, 3, 4, 5, 10, 25, 50, 70)], SpORcoords = mxy)
+
+# Moran's Coefficient
+MC.datum <- moran.randtest(datum[5:43], listwdatum, alter = "two-sided", nrepet = 999)
+MC.datum
+  
+## All but Se & Hg can reject the null hypothesis that the data is from a random point process. There is 
+## spatial autocorrelation that leads to natural clustering for the elements and soil properties
+
+# Moran's Coefficient Bounds
+mc.bounds <- moran.bounds(listwdatum)
+mc.bounds
+
+# Graph of each individual variable
+env.maps <- s1d.barchart(MC.datum$obs, labels = MC.datum$names, plot = TRUE, xlim = 1.1 * mc.bounds, paxes.draw = TRUE, pgrid.draw = FALSE)
+addline(env.maps, v = mc.bounds, plot = TRUE, pline.col = 'red', pline.lty = 3)
+  
+# Decomposing Moran's Coefficient - Example Case
+NP.Mg <- moranNP.randtest(datum$`Mg2+`, listwdatum, nrepet = 999, alter = "two-sided")
+plot(NP.Mg)
+
+## Mg has positive spatial autocorrelation - meaning similar Mg values tend to cluster together on the map
+## Negative spatial autocorrelation is when dissimilar values cluster together
+
+#### Spatial Data Analysis - MULTISPATI Analysis ####
+
+
+
+
+#### Spatial Data Analysis - PCA and Spatial PCA ####
+
+
+
+ 
 
 
