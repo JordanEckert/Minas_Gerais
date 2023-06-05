@@ -6,35 +6,23 @@ library(readxl)       # Loading excel dataset
 library(tidyverse)    # Data manipulation
 library(magrittr)     # Pipe operator
 
-# Attach packages - Exploratory Spatial Data Analysis
+# Attach packages
+library(GWmodel)      # Geographically weighted models
+library(sp)           # Data management
+library(spdep)        # Spatial autocorrelation
+library(gstat)        # Geostatistics
+library(RColorBrewer) # Visualization
+library(classInt)     # Class intervals
+library(gridExtra)    # Multiple plot
+library(ggplot2)      # Multiple plo
 library(leaflet)      # Creating geographic maps
 library(corrplot)     # Correlation plots
-library(Hmisc)        # Correlation analysis]
-library(gstat)        # Variogram
+library(Hmisc)        # Correlation analysis
 library(ade4)         # Spatial analysis suite
 library(adespatial)   # Spatial analysis suite
 library(adegraphics)  # Spatial plotting suite
 library(sf)           # Spatial analysis suite
-library(spdep)        # Spatial analysis suite
-library(sp)           # Spatial analysis suite
-
-# ++++++++++++++++++++++++++++
-# flattenCorrMatrix
-# ++++++++++++++++++++++++++++
-### Creates a flattened version of the correlation matrix since the matrix would be large ###
-# cormat : matrix of the correlation coefficients
-# pmat : matrix of the correlation p-values
-
-flattenCorrMatrix <- function(cormat, pmat) {
-  ut <- upper.tri(cormat)
-  data.frame(
-    row <- rownames(cormat)[row(cormat)[ut]],
-    column <- rownames(cormat)[col(cormat)[ut]],
-    cor  <-(cormat)[ut],
-    p <- pmat[ut]
-  )
-}
-
+library(umap)         # UMAP algorithm
 
 #### Data Cleaning ####
 # Loading main database
@@ -156,6 +144,18 @@ for(cols1 in colnames(datum[5:24])){
 }
 
 #### Exploratory Data Analysis - Correlation ####
+
+# Flatten correlation function 
+flattenCorrMatrix <- function(cormat, pmat) {
+  ut <- upper.tri(cormat)
+  data.frame(
+    row <- rownames(cormat)[row(cormat)[ut]],
+    column <- rownames(cormat)[col(cormat)[ut]],
+    cor  <-(cormat)[ut],
+    p <- pmat[ut]
+  )
+}
+
 # Correlation plots - Correlation of heavy minerals only
 corr <- cor(datum[,5:24])
 cor_plot <- corrplot(corr, type = "upper", method = "shade")
@@ -220,6 +220,52 @@ for (i in which(corr_flat3$cor > .50, arr.ind = T)){
 ## Therefore, we need to perform new analysis accounting for spatial interactions ....
 ## This will be done in the minas_gerais_ESDA file since it requires changing data frame into SpatialPointDataFrame object ....
 
+#### Exploratory Spatial Analysis - UMAP ####
+plot.umap <- function(x, labels,
+                      main="A UMAP visualization of the Iris dataset",
+                      colors=c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"),
+                      pad=0.1, cex=0.6, pch=19, add=FALSE, legend.suffix="",
+                      cex.main=1, cex.legend=0.85) {
+  layout <- x
+  if (is(x, "umap")) {
+    layout <- x$layout
+  } 
+
+  xylim <- range(layout)
+  xylim <- xylim + ((xylim[2]-xylim[1])*pad)*c(-0.5, 0.5)
+  if (!add) {
+    par(mar=c(0.2,0.7,1.2,0.7), ps=10)
+    plot(xylim, xylim, type="n", axes=F, frame=F)
+    rect(xylim[1], xylim[1], xylim[2], xylim[2], border="#aaaaaa", lwd=0.25)  
+  }
+  points(layout[,1], layout[,2], col=colors[as.integer(labels)],
+         cex=cex, pch=pch)
+         mtext(side=3, main, cex=cex.main)
+        
+  labels.u <- unique(labels)
+  legend.pos <- "topleft"
+  legend.text <- as.character(labels.u)
+  if (add) {
+    legend.pos <- "bottomleft"
+    legend.text <- paste(as.character(labels.u), legend.suffix)
+  }
+
+  legend(legend.pos, legend=legend.text, inset=0.03,
+         col=colors[as.integer(labels.u)],
+         bty="n", pch=pch, cex=cex.legend)
+}
+
+# Tuning parameters
+custom.config <- umap.defaults
+custom.config$n_neighbors <- 500
+custom.config$min_dist <- 1
+custom.config$spread <- 1.5
+custom.config$alpha <- .5
+custom.config$negative_sample_rate <- 100
+
+datum.umap <- umap(datum[,5:43], custom.config)
+plot.umap(datum.umap, datum$Zones)
+
 #### Exploratory Spatial Analysis - Variograms ####
 
 for(i in 5:43){
@@ -269,7 +315,9 @@ plot(spatial_datum[,2])
 
 # Create polygon area around each zone
 buf <- st_buffer(spatial_datum, dist = 40000)
-plot(buf[,1])
+plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"))
+# plot.umap(datum.umap, datum$Zones)
+
 
 # Creating spatial neighborhood 
 nb.datum <- poly2nb(buf$geometry) # From polygons calculated above
@@ -306,22 +354,109 @@ mc.bounds
 env.maps <- s1d.barchart(MC.datum$obs, labels = MC.datum$names, plot = TRUE, xlim = 1.1 * mc.bounds, paxes.draw = TRUE, pgrid.draw = FALSE)
 addline(env.maps, v = mc.bounds, plot = TRUE, pline.col = 'red', pline.lty = 3)
   
-# Decomposing Moran's Coefficient - Example Case
-NP.Mg <- moranNP.randtest(datum$`Mg2+`, listwdatum, nrepet = 999, alter = "two-sided")
-plot(NP.Mg)
+# Decomposing Moran's Coefficient
+NP.plot <- NULL
+for(i in 5:43){
+  NP.plot <- moranNP.randtest(datum[,i], listwdatum, nrepet = 999, alter = "two-sided")
+  plot(NP.plot, main = paste("Moran Coefficient Decomposition for", colnames(datum[,i])))
+}
 
-## Mg has positive spatial autocorrelation - meaning similar Mg values tend to cluster together on the map
+## Positive spatial autocorrelation is when similar values cluster together on the map
 ## Negative spatial autocorrelation is when dissimilar values cluster together
 
-#### Spatial Data Analysis - MULTISPATI Analysis ####
+## Previously looked at individual spatial structures on each variable separately separately.
+## Now summarizing all the data by multivariate methods and then looking at final analysis 
 
+#### Spatial Data Analysis - Principal Component Analysis ####
 
+# Scaling data
+data.scaled <- scale(datum[,5:43])
 
+# Principal Component Analysis on Scaled Data
+pca <- princomp(data.scaled, cor = FALSE)
+(pca$sdev^2 / sum(pca$sdev^2)) * 100
 
-#### Spatial Data Analysis - PCA and Spatial PCA ####
+# Loadings
+pca$loadings
 
+#### Spatial Data Analysis - Geographically Weighted PCA ####
 
+# Need a Spatial Points DF
+coords <- datum[,1:2]
+scaled.spdf <- SpatialPointsDataFrame(coords, as.data.frame(data.scaled))
 
- 
+# Optimal bandwith 
+bw.gw.pca <- bw.gwpca(scaled.spdf, 
+                   vars = colnames(scaled.spdf@data),
+                   k = 5,
+                   robust = FALSE, 
+                   adaptive = TRUE,
+                   longlat = TRUE,
+                   kernel = "bisquare")
 
+# GW PCA
+gw.pca<- gwpca(scaled.spdf, 
+               vars = colnames(scaled.spdf@data), 
+               bw = bw.gw.pca,
+               k = 5, 
+               robust = FALSE, 
+               adaptive = TRUE)
 
+# Loadings for PC1
+gw.pca$loadings[,,1]
+
+# Function to calculate proportion of variance for GWPCA
+prop.var <- function(gwpca.obj, n.components) {
+  return((rowSums(gwpca.obj$var[, 1:n.components]) /rowSums(gwpca.obj$var)) * 100)
+}
+
+var.gwpca <- prop.var(gw.pca, 3)
+scaled.spdf$var.gwpca <- var.gwpca
+
+# Visualization of Total Percent of Variances
+state <- shapefile('~/DataspellProjects/Minas_Gerais/References/31MUE250GC_SIR.shp')
+polys<- list("sp.lines", as(state, "SpatialLines"), col="grey", lwd=.8,lty=1)
+col.palette<-colorRampPalette(c("blue",  "sky blue", "green","yellow", "red"),space="rgb",interpolate = "linear")
+
+mypalette.4 <- brewer.pal(8, "Accent")
+
+spplot(scaled.spdf, "var.gwpca", key.space = "right",
+       col.regions = mypalette.4, cuts = 7, 
+       sp.layout =list(polys),
+       col="transparent",
+       main = "Percent Total Variation for Local components 1 to 3")
+
+# Loading visualization to see how each variable influences component
+loadings.pc1 <- gw.pca$loadings[, , 1]
+win.item = max.col(abs(loadings.pc1))
+scaled.spdf$win.item <- win.item
+
+mypalette <- c("lightpink", "blue", "grey", "purple",  "green")
+spplot(scaled.spdf, "win.item", key.space = "right",
+       col.regions = mypalette,
+       main = "Winning variable: highest \n abs. loading on local Comp.1",
+       sp.layout = list(polys))
+
+# MC for PCA Scores
+moran.randtest(pca$scores, listw = listwdatum, alter = "two-sided")
+
+#### Spatial Data Analysis - MULTISPATI ####
+
+## This is an alternate way of looking at spatial PCA. 
+## Instead of geographical weighting, compute MC on the PCA scores
+## and then searching directly for multivariate structure for axes that 
+## maximize the product of variances by MC
+## (Dray, Saïd, and Débias 2008)
+
+# Creating dudi pca object
+pca.dudi <- dudi.pca(data.scaled, scale = F, scannf = F, nf = 10)
+
+# MULTISPATI
+ms.datum <- multispati(pca.dudi, listw = listwdatum, scannf = F)
+summary(ms.datum)
+
+# Visualizations on first two PC
+g.ms.spe <- s.arrow(ms.datum$c1, plot = FALSE)
+g.ms.spe
+
+#### Spatial Data Analysis - Multiscale Analysis with MEM ####
