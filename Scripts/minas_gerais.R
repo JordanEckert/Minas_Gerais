@@ -24,6 +24,7 @@ library(adespatial)   # Spatial analysis suite
 library(adegraphics)  # Spatial plotting suite
 library(sf)           # Spatial analysis suite
 library(umap)         # UMAP algorithm
+library(raster)       # Shapefiles
 
 #### Data Cleaning ####
 # Loading main database
@@ -219,7 +220,6 @@ for (i in which(corr_flat3$cor > .50, arr.ind = T)){
 ##
 ## However, all correlation analysis has not accounted for spatial autocorrelations ...
 ## Therefore, we need to perform new analysis accounting for spatial interactions ....
-## This will be done in the minas_gerais_ESDA file since it requires changing data frame into SpatialPointDataFrame object ....
 
 #### Exploratory Spatial Analysis - UMAP ####
 plot.umap <- function(x, labels,
@@ -258,18 +258,18 @@ plot.umap <- function(x, labels,
 
 # Tuning parameters
 custom.config <- umap.defaults
-custom.config$n_neighbors <- 600
+custom.config$n_neighbors <- 500
 custom.config$min_dist <- 1
-custom.config$spread <- 1.5
+custom.config$spread <- 2
 custom.config$alpha <- .5
-custom.config$negative_sample_rate <- 200
+custom.config$negative_sample_rate <- 100
 
 # Default config
 datum.umap <- umap(as.matrix(dist(nnwhich(datum[,5:43], by = datum$Zones))))
 plot.umap(datum.umap, datum$Zones)
 
 # Tuned config
-datum.umap <- umap(as.matrix(dist(nnwhich(datum[,5:43], by = datum$Zones))), 
+datum.umap <- umap(as.matrix(dist(nnwhich(datum[,5], by = datum$Zones))), 
                    custom.config)
 plot.umap(datum.umap, datum$Zones)
 
@@ -286,14 +286,8 @@ multi_vario_metals = variogmultiv(datum[,5:24], datum[,1:2])
 plot(multi_vario_metals$d, multi_vario_metals$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
 
 # Multivariate Variogram for Soil Property - strictly equivalent to summing individual ones
-multi_vario_soil = variogmultiv(datum[,25:43], datum[,1:2])
+multi_vario_soil = variogmultiv(datum[,43], datum[,1:2])
 plot(multi_vario_soil$d, multi_vario_soil$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
-
-# Multivariate Variogram for Total - strictly equivalent to summing individual ones
-multi_vario = variogmultiv(datum[,5:43], datum[,1:2])
-plot(multi_vario$d, multi_vario$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
-
-#### Spatial Data Analysis - Kriging ####
 
 #### Spatial Data Analysis - Spatial Weighting Matrix ####
 
@@ -317,20 +311,13 @@ spatial_datum <- st_as_sf(datum, coords = c("Longitude", "Latitude"), crs = my_p
 # Plot of zonations
 plot(spatial_datum[,1])
 
-# Plot of labs
-plot(spatial_datum[,2])
-
 # Create polygon area around each zone
 buf <- st_buffer(spatial_datum, dist = 40000)
 plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"))
 # plot.umap(datum.umap, datum$Zones)
 
-
 # Creating spatial neighborhood based on zones
-zones <- st_as_sf(as.data.frame(c(datum[,1:2], nnwhich(datum[,5:43]), by = datum$Zones)), coords = c("Longitude", "Latitude"), crs = my_projection)
-geom <- st_geometry(zones)
-
-# nb.datum <- poly2nb(buf$geometry) # From polygons calculated above
+nb.datum <- poly2nb(buf, row.names = datum$Zones) # From polygons calculated above
 
 # Simple row standardization for spatial weight matrix (SWM)
 listwdatum <- nb2listw(nb.datum)
@@ -388,6 +375,9 @@ pca <- princomp(data.scaled, cor = FALSE)
 
 # Loadings
 pca$loadings
+
+# MC for PCA Scores
+moran.randtest(pca$scores, listw = listwdatum, alter = "two-sided")
 
 #### Spatial Data Analysis - Geographically Weighted PCA ####
 
@@ -447,9 +437,6 @@ spplot(scaled.spdf, "win.item", key.space = "right",
        main = "Winning variable: highest \n abs. loading on local Comp.1",
        sp.layout = list(polys))
 
-# MC for PCA Scores
-moran.randtest(pca$scores, listw = listwdatum, alter = "two-sided")
-
 #### Spatial Data Analysis - MULTISPATI ####
 
 ## This is an alternate way of looking at spatial PCA. 
@@ -469,4 +456,22 @@ summary(ms.datum)
 g.ms.spe <- s.arrow(ms.datum$c1, plot = FALSE)
 g.ms.spe
 
-#### Spatial Data Analysis - Multiscale Analysis with MEM ####
+#### Spatial Data Analysis - Kriging ####
+
+#### Spatial Data Analysis - Correlation Analysis ####
+
+#### Spatial Data Analysis - Geographically Weighted Regression ####
+
+#### Spatial Data Analysis - Machine Learning ####
+
+#---------------
+# Partial least squares type of approach 
+# Spatial correlation changes how PLS works?
+
+# Specifically use for Arsenic as response variable
+
+# List methods used for article writing, graphics to be for groupings and how they are spatially related
+# Present multivariate and each individual one
+#---------------
+
+
