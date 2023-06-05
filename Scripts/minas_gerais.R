@@ -2,9 +2,10 @@
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 
 # Attach packages - Data Cleaning
-library(readxl)       # Loading excel dataset
-library(tidyverse)    # Data manipulation
-library(magrittr)     # Pipe operator
+library(readxl)        # Loading excel dataset
+library(tidyverse)     # Data manipulation
+library(magrittr)      # Pipe operator
+library(spatstat.geom) # Distances
 
 # Attach packages
 library(GWmodel)      # Geographically weighted models
@@ -222,7 +223,7 @@ for (i in which(corr_flat3$cor > .50, arr.ind = T)){
 
 #### Exploratory Spatial Analysis - UMAP ####
 plot.umap <- function(x, labels,
-                      main="A UMAP visualization of the Iris dataset",
+                      main="UMAP Visualization",
                       colors=c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"),
                       pad=0.1, cex=0.6, pch=19, add=FALSE, legend.suffix="",
                       cex.main=1, cex.legend=0.85) {
@@ -257,13 +258,19 @@ plot.umap <- function(x, labels,
 
 # Tuning parameters
 custom.config <- umap.defaults
-custom.config$n_neighbors <- 500
+custom.config$n_neighbors <- 600
 custom.config$min_dist <- 1
 custom.config$spread <- 1.5
 custom.config$alpha <- .5
-custom.config$negative_sample_rate <- 100
+custom.config$negative_sample_rate <- 200
 
-datum.umap <- umap(datum[,5:43], custom.config)
+# Default config
+datum.umap <- umap(as.matrix(dist(nnwhich(datum[,5:43], by = datum$Zones))))
+plot.umap(datum.umap, datum$Zones)
+
+# Tuned config
+datum.umap <- umap(as.matrix(dist(nnwhich(datum[,5:43], by = datum$Zones))), 
+                   custom.config)
 plot.umap(datum.umap, datum$Zones)
 
 #### Exploratory Spatial Analysis - Variograms ####
@@ -319,11 +326,13 @@ plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"))
 # plot.umap(datum.umap, datum$Zones)
 
 
-# Creating spatial neighborhood 
-nb.datum <- poly2nb(buf$geometry) # From polygons calculated above
+# Creating spatial neighborhood based on zones
+zones <- st_as_sf(as.data.frame(c(datum[,1:2], nnwhich(datum[,5:43]), by = datum$Zones)), coords = c("Longitude", "Latitude"), crs = my_projection)
+geom <- st_geometry(zones)
+
+# nb.datum <- poly2nb(buf$geometry) # From polygons calculated above
 
 # Simple row standardization for spatial weight matrix (SWM)
-mxy <- as.matrix(datum[,c(1,2)]) # Matrix of coordinates
 listwdatum <- nb2listw(nb.datum)
 
 #### Spatial Data Analysis - Univariate Spatial Predictors ####
@@ -337,6 +346,7 @@ mem.datum <- mem(listwdatum)
 mem.datum
 
 # Plot of first few relevant MEM
+mxy <- as.matrix(datum[,c(1,2)]) # Matrix of coordinates
 plot(mem.datum[,c(1, 2, 3, 4, 5, 10, 25, 50, 70)], SpORcoords = mxy)
 
 # Moran's Coefficient
