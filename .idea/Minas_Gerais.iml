@@ -3,7 +3,6 @@
   <component name="NewModuleRootManager">
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="DataspellProjects" />
     <orderEntry type="module" module-name="AntonyJointWork" />
   </component>
 </module>
