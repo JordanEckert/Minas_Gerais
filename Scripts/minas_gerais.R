@@ -24,6 +24,7 @@ library(adespatial)   # Spatial analysis suite
 library(adegraphics)  # Spatial plotting suite
 library(sf)           # Spatial analysis suite
 library(umap)         # UMAP algorithm
+library(spgwr)        # GW Regression
 library(raster)       # Shapefiles
 
 #### Data Cleaning ####
@@ -264,10 +265,6 @@ custom.config$spread <- 2
 custom.config$alpha <- .5
 custom.config$negative_sample_rate <- 100
 
-# Default config
-datum.umap <- umap(as.matrix(dist(nnwhich(datum[,5:43], by = datum$Zones))))
-plot.umap(datum.umap, datum$Zones)
-
 # Tuned config
 datum.umap <- umap(as.matrix(dist(nnwhich(datum[,5], by = datum$Zones))), 
                    custom.config)
@@ -456,11 +453,23 @@ summary(ms.datum)
 g.ms.spe <- s.arrow(ms.datum$c1, plot = FALSE)
 g.ms.spe
 
-#### Spatial Data Analysis - Kriging ####
-
 #### Spatial Data Analysis - Correlation Analysis ####
 
 #### Spatial Data Analysis - Geographically Weighted Regression ####
+
+# Data frame for GWR
+reg_data <- (datum[,c(1,2, 19, 25:43)])
+reg_data <- reg_data[apply(reg_data,1, function(x) all(x!= 0)),]
+coordinates(reg_data) <- ~ Longitude + Latitude
+reg_data
+
+# Bandwidth selection
+GWRBandwidth <- gwr.sel(As ~ reg_data$`pH H2O` + reg_data$`pH KCl` + reg_data$PM +
+                          reg_data$`K+` + reg_data$`Ca2+` + reg_data$`Ca2+` + reg_data$`Mg2+` +
+                          reg_data$`Al3+` + reg_data$`H+Al` + reg_data$SB + reg_data$ECEC +
+                          reg_data$CEC + reg_data$`V (%)` + reg_data$`m (%)` + reg_data$SOM +
+                          reg_data$PREM + reg_data$`Coarse sand` + reg_data$`Fine sand` + reg_data$Silt +
+                          reg_data$Clay, reg_data)
 
 #### Spatial Data Analysis - Machine Learning ####
 
