@@ -473,14 +473,5 @@ GWRBandwidth <- gwr.sel(As ~ reg_data$`pH H2O` + reg_data$`pH KCl` + reg_data$PM
 
 #### Spatial Data Analysis - Machine Learning ####
 
-#---------------
-# Partial least squares type of approach 
-# Spatial correlation changes how PLS works?
-
-# Specifically use for Arsenic as response variable
-
-# List methods used for article writing, graphics to be for groupings and how they are spatially related
-# Present multivariate and each individual one
-#---------------
 
 
