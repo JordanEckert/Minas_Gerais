@@ -26,6 +26,8 @@ library(sf)           # Spatial analysis suite
 library(umap)         # UMAP algorithm
 library(spgwr)        # GW Regression
 library(raster)       # Shapefiles
+library(leaps)        # Regression variable selection
+library(MASS)         # Regression variable selection
 
 #### Data Cleaning ####
 # Loading main database
@@ -453,25 +455,97 @@ summary(ms.datum)
 g.ms.spe <- s.arrow(ms.datum$c1, plot = FALSE)
 g.ms.spe
 
-#### Spatial Data Analysis - Correlation Analysis ####
-
 #### Spatial Data Analysis - Geographically Weighted Regression ####
 
-# Data frame for GWR
-reg_data <- (datum[,c(1,2, 19, 25:43)])
-reg_data <- reg_data[apply(reg_data,1, function(x) all(x!= 0)),]
-coordinates(reg_data) <- ~ Longitude + Latitude
-reg_data
+# Scatterplots
+plot(datum$As, datum$Zones)  # One zone seems to have higher quantities
+
+for(cols in colnames(datum[25:43])){
+  plot(datum$As ~ datum[[cols]], xlab = "Arsenic", ylab = paste(cols), main = paste("Plots of", cols, "vs. Arsenic"))
+} # None of the soil properties have a linear relationship - GWR would probably not go well ... 
+
+# Original model - all variables
+model1 <- glm(As ~ datum$Zones + datum$`pH H2O` + datum$`pH KCl` + datum$PM +
+               datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
+               datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
+               datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
+               datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
+               datum$Clay, family = gaussian, data = datum)
+
+summary(model1) # Summary shows a lot of non significant variables
+
+## Let's do variable selection and see if that helps with the errors in the residual plot
+
+# Correlation of Aresenic with Heavy metals
+corr <- cor(datum[,c(19,25:43)])
+cor_plot <- corrplot(corr, type = "upper", method = "shade")
+cor_plot
+
+# Ca2+ and ECEC, Ca2+ and CEC, ph H20 and m (%), V(%) and m(%), SB and CEC
+# PREM and Clay, Fine sand and Clay, ph H20 and SOM are all correlated heavily.
+
+# Look at top 3 subsets
+all <- regsubsets(datum$As ~ datum$Zones + datum$`pH H2O` + datum$`pH KCl` + datum$PM +
+                    datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
+                    datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
+                    datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
+                    datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
+                    datum$Clay, data = datum, nbest = 1)
+
+info <- summary(all)
+cbind(info$which, round(cbind(rsq=info$rsq, adjr2=info$adjr2, cp=info$cp, bic=info$bic, rss=info$rss), 3))
+
+# Stepwise Regression picks lowest AIC
+null<-lm(As ~ 1, data=datum)
+full<-lm(datum$As ~ datum$Zones + datum$`pH H2O` + datum$`pH KCl` + datum$PM +
+           datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
+           datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
+           datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
+           datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
+           datum$Clay, data = datum)
+
+stepAIC(null, scope=list(lower=null, upper=full), data=datum, direction='both')
+
+# Secondary Regression with new variable subset
+model2 <- glm(As ~ datum$Silt + datum$`pH KCl` + datum$`V (%)` + 
+                datum$`Al3+` + datum$Clay, data = datum)
+summary(model2)
+
+# Plot of residuals for obvious spatial patterning
+resids<-residuals(model2)
+colours <- c("navy", "blue", "red", "maroon") 
+map.resids <- SpatialPointsDataFrame(data=data.frame(resids), coords=cbind(datum$Longitude, datum$Latitude)) 
+spplot(map.resids, cuts=quantile(resids), col.regions=colours, cex=1) 
+
+## From plot there is some spatial patterning of the residuals. Lets see how coefficients of the model vary across region
 
 # Bandwidth selection
-GWRBandwidth <- gwr.sel(As ~ reg_data$`pH H2O` + reg_data$`pH KCl` + reg_data$PM +
-                          reg_data$`K+` + reg_data$`Ca2+` + reg_data$`Ca2+` + reg_data$`Mg2+` +
-                          reg_data$`Al3+` + reg_data$`H+Al` + reg_data$SB + reg_data$ECEC +
-                          reg_data$CEC + reg_data$`V (%)` + reg_data$`m (%)` + reg_data$SOM +
-                          reg_data$PREM + reg_data$`Coarse sand` + reg_data$`Fine sand` + reg_data$Silt +
-                          reg_data$Clay, reg_data)
+GWRbandwidth <- gwr.sel(As ~ datum$Silt + datum$`pH KCl` + datum$`V (%)` + 
+                          datum$`Al3+` + datum$Clay, datum, coords=cbind(datum$Longitude, datum$Latitude), adapt = TRUE, longlat = TRUE) 
 
-#### Spatial Data Analysis - Machine Learning ####
+# GWR Model
+gwr.model = gwr(As~ Silt + `pH KCl` + `V (%)` + 
+                  `Al3+` + Clay, datum, coords=cbind(datum$Longitude, datum$Latitude), adapt=GWRbandwidth, hatmatrix=TRUE, se.fit=TRUE)
+
+# GWR Model Results
+gwr.model
+
+# Attach results to original dataset
+coef<-as.data.frame(gwr.model$SDF)
+head(coef)
+
+new_datum <- cbind(datum, coef$Silt, coef$X.pH.KCl., coef$X.V....., coef$X.Al3.., coef$Clay)
+
+# Plotting GWR Coefficients
+
+for (cols in colnames(new_datum[44:48])){
+  gwr.point<-ggplot(new_datum, 
+                     aes(x=Longitude,y=Latitude))+geom_point(aes(colour=new_datum[[cols]])) + scale_colour_gradient2(low = "red", mid = "green", high = "blue", midpoint = median(new_datum[[cols]]), space = "rgb", na.value = "grey50", guide = "colourbar", guide_legend(title="Coefs")) + coord_equal()
+  plot(gwr.point)
+}
+
+#### Spatial Data Analysis - Random Forest ####
+
 
 #---------------
 # Partial least squares type of approach 
