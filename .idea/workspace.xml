@@ -4,7 +4,9 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="0595188a-588a-4f4a-b868-d268d3bb6878" name="Changes" comment="Updated" />
+    <list default="true" id="0595188a-588a-4f4a-b868-d268d3bb6878" name="Changes" comment="Updated">
+      <change beforePath="$PROJECT_DIR$/Scripts/minas_gerais.R" beforeDir="false" afterPath="$PROJECT_DIR$/Scripts/minas_gerais.R" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -30,6 +32,7 @@
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "WebServerToolWindowFactoryState": "false",
+    "last_opened_file_path": "/Users/basecamp/Library/Mobile Documents/com~apple~CloudDocs/DataspellProjects/Minas_Gerais",
     "settings.editor.selected.configurable": "com.jetbrains.python.configuration.PythonContentEntriesConfigurable"
   }
 }]]></component>
