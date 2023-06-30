@@ -26,15 +26,16 @@ library(sf)           # Spatial analysis suite
 library(umap)         # UMAP algorithm
 library(spgwr)        # GW Regression
 library(raster)       # Shapefiles
-library(leaps)        # Regression variable selection
 library(MASS)         # Regression variable selection
+library(leaps)        # Regression variable selection
+library(SpatialML)    # Spatial RF
 
 #### Data Cleaning ####
 # Loading main database
-datum <- read_excel("/Users/basecamp/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
+datum <- read_excel("~/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
 
 # PQL limits file
-PQL <- read_excel("/Users/basecamp/DataspellProjects/Minas_Gerais/Database/PQL.xlsx", skip = 1)
+PQL <- read_excel("~/DataspellProjects/Minas_Gerais/Database/PQL.xlsx", skip = 1)
 PQL <- PQL[-c(26:32),]  # Removing extra information not needed in R
 
 # Checking the structure of the databases
@@ -462,15 +463,15 @@ plot(datum$As, datum$Zones)  # One zone seems to have higher quantities
 
 for(cols in colnames(datum[25:43])){
   plot(datum$As ~ datum[[cols]], xlab = "Arsenic", ylab = paste(cols), main = paste("Plots of", cols, "vs. Arsenic"))
-} # None of the soil properties have a linear relationship - GWR would probably not go well ... 
+} # None of the soil properties have a linear relationship - GWR would probably not go well ...
 
 # Original model - all variables
 model1 <- glm(As ~ datum$Zones + datum$`pH H2O` + datum$`pH KCl` + datum$PM +
-               datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
-               datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
-               datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
-               datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
-               datum$Clay, family = gaussian, data = datum)
+  datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
+  datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
+  datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
+  datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
+  datum$Clay, family = gaussian, data = datum)
 
 summary(model1) # Summary shows a lot of non significant variables
 
@@ -486,11 +487,11 @@ cor_plot
 
 # Look at top 3 subsets
 all <- regsubsets(datum$As ~ datum$Zones + datum$`pH H2O` + datum$`pH KCl` + datum$PM +
-                    datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
-                    datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
-                    datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
-                    datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
-                    datum$Clay, data = datum, nbest = 1)
+  datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
+  datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
+  datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
+  datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
+  datum$Clay, data = datum, nbest = 1)
 
 info <- summary(all)
 cbind(info$which, round(cbind(rsq=info$rsq, adjr2=info$adjr2, cp=info$cp, bic=info$bic, rss=info$rss), 3))
@@ -498,34 +499,34 @@ cbind(info$which, round(cbind(rsq=info$rsq, adjr2=info$adjr2, cp=info$cp, bic=in
 # Stepwise Regression picks lowest AIC
 null<-lm(As ~ 1, data=datum)
 full<-lm(datum$As ~ datum$Zones + datum$`pH H2O` + datum$`pH KCl` + datum$PM +
-           datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
-           datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
-           datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
-           datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
-           datum$Clay, data = datum)
+  datum$`K+` + datum$`Ca2+` + datum$`Ca2+` + datum$`Mg2+` +
+  datum$`Al3+` + datum$`H+Al` + datum$SB + datum$ECEC +
+  datum$CEC + datum$`V (%)` + datum$`m (%)` + datum$SOM +
+  datum$PREM + datum$`Coarse sand` + datum$`Fine sand` + datum$Silt +
+  datum$Clay, data = datum)
 
 stepAIC(null, scope=list(lower=null, upper=full), data=datum, direction='both')
 
 # Secondary Regression with new variable subset
-model2 <- glm(As ~ datum$Silt + datum$`pH KCl` + datum$`V (%)` + 
-                datum$`Al3+` + datum$Clay, data = datum)
+model2 <- glm(As ~ datum$Silt + datum$`pH KCl` + datum$`V (%)` +
+  datum$`Al3+` + datum$Clay, data = datum)
 summary(model2)
 
 # Plot of residuals for obvious spatial patterning
 resids<-residuals(model2)
-colours <- c("navy", "blue", "red", "maroon") 
-map.resids <- SpatialPointsDataFrame(data=data.frame(resids), coords=cbind(datum$Longitude, datum$Latitude)) 
-spplot(map.resids, cuts=quantile(resids), col.regions=colours, cex=1) 
+colours <- c("navy", "blue", "red", "maroon")
+map.resids <- SpatialPointsDataFrame(data=data.frame(resids), coords=cbind(datum$Longitude, datum$Latitude))
+spplot(map.resids, cuts=quantile(resids), col.regions=colours, cex=1)
 
 ## From plot there is some spatial patterning of the residuals. Lets see how coefficients of the model vary across region
 
 # Bandwidth selection
-GWRbandwidth <- gwr.sel(As ~ datum$Silt + datum$`pH KCl` + datum$`V (%)` + 
-                          datum$`Al3+` + datum$Clay, datum, coords=cbind(datum$Longitude, datum$Latitude), adapt = TRUE, longlat = TRUE) 
+GWRbandwidth <- gwr.sel(As ~ datum$Silt + datum$`pH KCl` + datum$`V (%)` +
+  datum$`Al3+` + datum$Clay, datum, coords=cbind(datum$Longitude, datum$Latitude), adapt = TRUE, longlat = TRUE)
 
 # GWR Model
-gwr.model = gwr(As~ Silt + `pH KCl` + `V (%)` + 
-                  `Al3+` + Clay, datum, coords=cbind(datum$Longitude, datum$Latitude), adapt=GWRbandwidth, hatmatrix=TRUE, se.fit=TRUE)
+gwr.model = gwr(As~ Silt + `pH KCl` + `V (%)` +
+  `Al3+` + Clay, datum, coords=cbind(datum$Longitude, datum$Latitude), adapt=GWRbandwidth, hatmatrix=TRUE, se.fit=TRUE)
 
 # GWR Model Results
 gwr.model
@@ -539,12 +540,60 @@ new_datum <- cbind(datum, coef$Silt, coef$X.pH.KCl., coef$X.V....., coef$X.Al3..
 # Plotting GWR Coefficients
 
 for (cols in colnames(new_datum[44:48])){
-  gwr.point<-ggplot(new_datum, 
-                     aes(x=Longitude,y=Latitude))+geom_point(aes(colour=new_datum[[cols]])) + scale_colour_gradient2(low = "red", mid = "green", high = "blue", midpoint = median(new_datum[[cols]]), space = "rgb", na.value = "grey50", guide = "colourbar", guide_legend(title="Coefs")) + coord_equal()
+  gwr.point<-ggplot(new_datum,
+                    aes(x=Longitude,y=Latitude))+geom_point(aes(colour=new_datum[[cols]])) + scale_colour_gradient2(low = "red", mid = "green", high = "blue", midpoint = median(new_datum[[cols]]), space = "rgb", na.value = "grey50", guide = "colourbar", guide_legend(title="Coefs")) + coord_equal()
   plot(gwr.point)
 }
 
 #### Spatial Data Analysis - Random Forest ####
+
+## It allows for the investigation of the existence of spatial non-stationarity, in the relationship between a dependent
+## and a set of independent variables. The latter is possible by fitting a sub-model for each observation in space, taking
+## into account the neighbouring observations. This technique adopts the idea of the Geographically Weighted Regression, Kalogirou (2003).
+## The main difference between a tradition (linear) GWR and GRF is that we can model non-stationarity coupled with a flexible
+## non-linear model which is very hard to overfit due to its bootstrapping nature, thus relaxing the assumptions of traditional
+## Gaussian statistics. Essentially, it was designed to be a bridge between machine learning and geographical models,
+## combining inferential and explanatory power.
+
+# Spatial Random Forest
+new_df <- (datum[,c(1,2, 19, 25:43)])
+coords <- new_df[,1:2]
+
+# It's picky about the column names
+new_column_names <- paste0("V", 1:19)  # Generate new column names "V1" to "V19"
+colnames(new_df)[4:22] <- new_column_names  # Assign new column names to columns
+
+# Find adaptive optimal bandwidth selection
+GRFBandwidth1 <- grf.bw(As ~ V1 + V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19,
+                       dataset = new_df,
+                       bw.min = 50,
+                       bw.max = 500,
+                       step = 5,
+                       kernel = "adaptive",
+                       weighted = FALSE,
+                       coords = coords)
+
+GRFBandwidth2 <- grf.bw(As ~ V2 + V7 + V12 + V18,
+                        dataset = new_df,
+                        bw.min = 50,
+                        bw.max = 500,
+                        step = 5,
+                        kernel = "adaptive",
+                        weighted = FALSE,
+                        coords = coords)
+
+# Spatial random forest with optimal bandwidth
+spatial_rf <- grf(As ~ V1 + V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19,
+                  dframe = new_df, kernel = "adaptive", bw = GRFBandwidth1, coords = coords, weighted = FALSE)
+
+## Resultant random forest has weird R2 properties. The global testing set is high, but the OOB is negative. MSE also high
+# Attempting to fit a smaller RF based off the variables selected in the stepwise regression
+
+spatial_rf_2 <- grf(As ~ V2 + V7 + V12 + V18,
+                  dframe = new_df, kernel = "adaptive", bw = GRFBandwidth, coords = coords, weighted = FALSE)
+
+## The global testing R2 is worse, but the OOB R2 is finally not negative. Variance measures are quite high.
+## There seems to be a bit of an issue.
 
 
 
