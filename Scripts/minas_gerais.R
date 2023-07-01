@@ -1,4 +1,3 @@
-# The purpose of this script is to perform exploratory data analysis on the Minas Gerais database
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 
 # Attach packages - Data Cleaning
@@ -459,7 +458,7 @@ g.ms.spe
 #### Spatial Data Analysis - Geographically Weighted Regression ####
 
 # Scatterplots
-plot(datum$As, datum$Zones)  # One zone seems to have higher quantities
+plot(datum$As, datum$Zones)  # One zone (PR) seems to have higher quantities, or at least more spread out
 
 for(cols in colnames(datum[25:43])){
   plot(datum$As ~ datum[[cols]], xlab = "Arsenic", ylab = paste(cols), main = paste("Plots of", cols, "vs. Arsenic"))
@@ -512,6 +511,8 @@ model2 <- glm(As ~ datum$Silt + datum$`pH KCl` + datum$`V (%)` +
   datum$`Al3+` + datum$Clay, data = datum)
 summary(model2)
 
+plot(model2, 1) # Plot of residual versus fitted, no spatial patterning
+
 # Plot of residuals for obvious spatial patterning
 resids<-residuals(model2)
 colours <- c("navy", "blue", "red", "maroon")
@@ -556,44 +557,69 @@ for (cols in colnames(new_datum[44:48])){
 ## combining inferential and explanatory power.
 
 # Spatial Random Forest
-new_df <- (datum[,c(1,2, 19, 25:43)])
+new_df <- (datum[datum$As != 0.000, c(1,2, 19, 25:43)])
 coords <- new_df[,1:2]
 
 # It's picky about the column names
 new_column_names <- paste0("V", 1:19)  # Generate new column names "V1" to "V19"
 colnames(new_df)[4:22] <- new_column_names  # Assign new column names to columns
 
+# Optimal mtry
+optimtry <- rf.mtry.optim(As ~ V2 + V7 + V12 + V18, dataset = new_df)
+
 # Find adaptive optimal bandwidth selection
 GRFBandwidth1 <- grf.bw(As ~ V1 + V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19,
                        dataset = new_df,
                        bw.min = 50,
                        bw.max = 500,
+                        mtry = 1,
                        step = 5,
                        kernel = "adaptive",
-                       weighted = FALSE,
+                       weighted = TRUE,
                        coords = coords)
 
 GRFBandwidth2 <- grf.bw(As ~ V2 + V7 + V12 + V18,
                         dataset = new_df,
-                        bw.min = 50,
-                        bw.max = 500,
+                        bw.min = 20,
+                        bw.max = 150,
                         step = 5,
+                        mtry = 1,
                         kernel = "adaptive",
-                        weighted = FALSE,
+                        weighted = TRUE,
                         coords = coords)
 
-# Spatial random forest with optimal bandwidth
+# Spatial random forest with optimal mtry, bandwidth
 spatial_rf <- grf(As ~ V1 + V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19,
-                  dframe = new_df, kernel = "adaptive", bw = GRFBandwidth1, coords = coords, weighted = FALSE)
+                  dframe = new_df, kernel = "adaptive", mtry = 1, bw = 50, coords = coords, weighted = TRUE)
 
-## Resultant random forest has weird R2 properties. The global testing set is high, but the OOB is negative. MSE also high
-# Attempting to fit a smaller RF based off the variables selected in the stepwise regression
+## Resultant random forest has weird R2 properties. The global testing set is high, but the OOB is negative. MSE also high.
+## In the context of the SpatialML package and the grf implementation, a negative local R-squared (OOB) suggests that the
+## spatial random forest model's predictions perform worse than the average response value in the out-of-bag (OOB) samples
+## for a specific local region. It indicates that the model is not capturing the spatial patterns or relationships present in that particular region,
+## resulting in poor predictive performance.
 
-spatial_rf_2 <- grf(As ~ V2 + V7 + V12 + V18,
-                  dframe = new_df, kernel = "adaptive", bw = GRFBandwidth, coords = coords, weighted = FALSE)
+## Attempting to fit a smaller RF based off the variables selected in the stepwise regression
+
+spatial_rf_2 <- grf(As ~ V2 + V7 + V12 + V18 + V19,
+                    dframe = new_df,
+                    kernel = "adaptive",
+                    bw = 30,
+                    mtry = 1,
+                    ntree = 500,
+                    coords = coords,
+                    weighted = TRUE)
 
 ## The global testing R2 is worse, but the OOB R2 is finally not negative. Variance measures are quite high.
 ## There seems to be a bit of an issue.
+
+spatial_rf_3 <- grf(As ~ V2 + V18 + V13 + V19,
+                    dframe = new_df,
+                    kernel = "adaptive",
+                    bw = 30,
+                    mtry = 1,
+                    ntree = 500,
+                    coords = coords,
+                    weighted = TRUE)
 
 
 
