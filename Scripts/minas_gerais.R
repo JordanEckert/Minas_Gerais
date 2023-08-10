@@ -14,7 +14,7 @@ library(gstat)        # Geostatistics
 library(RColorBrewer) # Visualization
 library(classInt)     # Class intervals
 library(gridExtra)    # Multiple plot
-library(ggplot2)      # Multiple plo
+library(ggplot2)      # Multiple plot
 library(leaflet)      # Creating geographic maps
 library(corrplot)     # Correlation plots
 library(Hmisc)        # Correlation analysis
@@ -28,6 +28,8 @@ library(raster)       # Shapefiles
 library(MASS)         # Regression variable selection
 library(leaps)        # Regression variable selection
 library(SpatialML)    # Spatial RF
+library(deldir)       # Delauney tessellations
+
 
 #### Data Cleaning ####
 # Loading main database
@@ -131,7 +133,7 @@ map
 
 # Boxplots of Heavy Metals by Zones
 for(cols in colnames(datum[5:24])){
-  boxplot(datum[[cols]] ~ datum$Zones, xlab = "Labs", ylab = paste(cols), main = paste("Boxplot of", cols))
+  boxplot(datum[[cols]] ~ datum$Zones, xlab = "Labs", ylab = paste(cols), main = paste("Boxplot of", cols, "by Zones"))
 }
 
 # Boxplots of Soil Properties by Zones
@@ -203,7 +205,7 @@ for (i in which(corr_flat2$cor > .50, arr.ind = T)){
 corr5 <- cor(datum[,5:43])
 corr5
 
-cor_plot3 <- corrplot(corr5, type = "upper", method = "shade")
+cor_plot3 <- corrplot(corr5, type = "upper", method = "shade", main = "Correlation Plot of Heavy Metals and Soil Properties")
 cor_plot3
 
 corr6 <- rcorr(as.matrix(datum[5:43]))
@@ -285,63 +287,82 @@ multi_vario_metals = variogmultiv(datum[,5:24], datum[,1:2])
 plot(multi_vario_metals$d, multi_vario_metals$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
 
 # Multivariate Variogram for Soil Property - strictly equivalent to summing individual ones
-multi_vario_soil = variogmultiv(datum[,43], datum[,1:2])
-plot(multi_vario_soil$d, multi_vario_soil$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)")
+multi_vario_soil = variogmultiv(datum[,25:43], datum[,1:2])
+plot(multi_vario_soil$d, multi_vario_soil$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)", main = "Multivariate Variogram for Soil Properties")
 
 #### Spatial Data Analysis - Spatial Weighting Matrix ####
 
-## First I need to turn my dataset into a spatial object for use in adepsatial and sf
-## The plan is to go from a points sampling design to a get a rough polygon based off zones
-## Then, we create a spatial neighborhood and the spatial weighting matrix to give the orthogonal spatial vectors
-## Finally, we can perform spatial multivariate analysis using Moran's Eigenvalue Maps
+## Our sampling design was irregularly sampled points. Therefore, step one in building the SWM is 
+## to build spatial neighborhoods. We offer two ways of building these neighborhoods. The first is through the 
+## Gabriel graphs. These graphs have an edge between points if the two points are closes to their midpoint, with no other given point being as close. 
+## The second is through creating polygon areas based on distances from points and their overlaps. 
 
-# Define projection string and CRS
-prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-my_projection <- st_crs(prj4string)
+## Neighborhood based on the Relative Neighborhood Graph
+nb.datum<- graph2nb(gabrielneigh(datum[,c(1,2)]), sym = TRUE)
 
-# Convert datum into sf object
-spatial_datum <- st_as_sf(datum, coords = c("Longitude", "Latitude"), crs = my_projection)
+#### Alternative Neighborhood Construction Method Could be Based on Distances ####
+## Peeling off different zones as categories
+#TO_datum <- spatial_datum[spatial_datum$Zones == "TO", ]
+#SF_datum <- spatial_datum[spatial_datum$Zones == "SF", ]
+#PR_datum <- spatial_datum[spatial_datum$Zones == "PR", ]
+#MA_datum <- spatial_datum[spatial_datum$Zones == "MA", ]
 
-## Checking sf object
-# str(spatial_datum)
-# class(spatial_datum)
-# st_is_valid(spatial_datum)
+## Changing indexes to be correct
+#rownames(SF_datum) <- 35:489
+#rownames(PR_datum) <- 490:568
+#rownames(MA_datum) <- 569:696
 
-# Plot of zonations
-plot(spatial_datum[,1])
+## Create polygon area around each zone - Allows for adaptive polygon creation based on Zone
+#buf1 <- st_buffer(TO_datum, dist = 27500)
+#plot(buf1[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for TO")
+#
+#buf2 <- st_buffer(SF_datum, dist = 20000)
+#plot(buf2[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for SF")
 
-# Create polygon area around each zone
-buf <- st_buffer(spatial_datum, dist = 40000)
-plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"))
-# plot.umap(datum.umap, datum$Zones)
+#buf3 <- st_buffer(PR_datum, dist = 35000) 
+#plot(buf3[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for PR")
 
-# Creating spatial neighborhood based on zones
-nb.datum <- poly2nb(buf, row.names = datum$Zones) # From polygons calculated above
+#buf4 <- st_buffer(MA_datum, dist = 40000)
+#plot(buf4[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for MA")
 
-# Simple row standardization for spatial weight matrix (SWM)
-listwdatum <- nb2listw(nb.datum)
+## Combining polygon areas
+#buf <- rbind(buf1, buf2, buf3, buf4)
 
-#### Spatial Data Analysis - Univariate Spatial Predictors ####
+## Creating spatial neighborhood based on zones
+#nb.datum <- poly2nb(buf, row.names = spatial_datum) # From polygons calculated above
+
+## Further differences can be explored using diffnb() if wanted
+
+# Distances for weighting relative to other points 
+dist.nb <- nbdists(nb.datum, datum[,c(1,2)])
+
+# Function of distance 1 - d_ij/max(d_ij) for scaling
+fdist <- lapply(dist.nb, function (x) 1 - x/max(dist(datum[,c(1,2)])))
+
+# Generate Spatial Weighting Matrix
+listwdatum <- nb2listw(nb.datum, fdist, style = "W")
+listwdatum
+
+#### Spatial Data Analysis - Creating Spatial Predictors ####
 
 ## Spatial predictors are orthogonal vectors stored in an object of class orthobasisSp
 ## Allows for Moran's Eigenvalue Maps (MEM) based on the diagonalization of a doubly-centered SWM
-## MEMs maximize the Moran's coefficient of spatial autocorrelation
+## MEMs maximize the Moran's coefficient of spatial autocorrelation. These predictors can be used
+## to provide spatially-explicit multiscale tools (Dray et al. 2012). 
 
-# Calculate MEM
+# Calculate Moran eigenvector maps
 mem.datum <- mem(listwdatum)
 mem.datum
 
-# Plot of first few relevant MEM
+# Map of MEM in Geographical Space
 mxy <- as.matrix(datum[,c(1,2)]) # Matrix of coordinates
-plot(mem.datum[,c(1, 2, 3, 4, 5, 10, 25, 50, 70)], SpORcoords = mxy)
+plot(mem.datum[,c(1, 2, 3, 4, 5, 10)], SpORcoords = mxy)
 
-# Moran's Coefficient
+# Moran's I Test for each Eigenvector
 MC.datum <- moran.randtest(datum[5:43], listwdatum, alter = "two-sided", nrepet = 999)
 MC.datum
-  
-## All but Se & Hg can reject the null hypothesis that the data is from a random point process. There is 
-## spatial autocorrelation that leads to natural clustering for the elements and soil properties
 
+#### Spatial Data Analysis - Describing Spatial Patterns ####
 # Moran's Coefficient Bounds
 mc.bounds <- moran.bounds(listwdatum)
 mc.bounds
@@ -351,6 +372,9 @@ env.maps <- s1d.barchart(MC.datum$obs, labels = MC.datum$names, plot = TRUE, xli
 addline(env.maps, v = mc.bounds, plot = TRUE, pline.col = 'red', pline.lty = 3)
   
 # Decomposing Moran's Coefficient
+NP.As <- moranNP.randtest(datum[,19], listwdatum, nrepet = 999, alter = "two-sided")
+NP.As
+
 NP.plot <- NULL
 for(i in 5:43){
   NP.plot <- moranNP.randtest(datum[,i], listwdatum, nrepet = 999, alter = "two-sided")
@@ -360,11 +384,13 @@ for(i in 5:43){
 ## Positive spatial autocorrelation is when similar values cluster together on the map
 ## Negative spatial autocorrelation is when dissimilar values cluster together
 
+## We see Arsenic has a statisitcally significant positive I+. 
+## So, similar values of Arsenic will cluster together on the map.
+
 ## Previously looked at individual spatial structures on each variable separately separately.
 ## Now summarizing all the data by multivariate methods and then looking at final analysis 
 
 #### Spatial Data Analysis - Principal Component Analysis ####
-
 # Scaling data
 data.scaled <- scale(datum[,5:43])
 
@@ -452,7 +478,7 @@ ms.datum <- multispati(pca.dudi, listw = listwdatum, scannf = F)
 summary(ms.datum)
 
 # Visualizations on first two PC
-g.ms.spe <- s.arrow(ms.datum$c1, plot = FALSE)
+g.ms.spe <- s.arrow(ms.datum$c1, plot = TRUE, main = "PCA")
 g.ms.spe
 
 #### Spatial Data Analysis - Geographically Weighted Regression ####
