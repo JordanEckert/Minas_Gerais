@@ -574,3 +574,53 @@ for (cols in colnames(new_datum[44:48])){
 
 #### Spatial Data Analysis - Random Forest ####
 
+# Arsenic levels
+datum$AsLevel <- as.factor(ifelse(datum$As >= 8.0, "High", "Low"))
+
+# Summary
+table(datum$AsLevel)
+
+## 202 out of the 696 are high levels of Arsenic (~30%)
+## Is there a local imbalance of high levels?
+
+# Create a scatter plot of As values
+as_plot <- ggplot(datum, aes(x = Longitude, y = Latitude)) + 
+  geom_point(aes(size = As, color = AsLevel), alpha = 0.7) + 
+  scale_size_continuous(range = c(2, 10), name = "As Value") + 
+  labs(title = "Distribution of Arsenic (As) Values Across Minas Gerais Region",
+       x = "Longitude", y = "Latitude", color = "As Value") + 
+  theme_minimal()
+
+# Print the scatter plot
+print(as_plot)
+
+## Visualizations seem to show that yes there is a local imbalance.
+
+# It's picky about the column names, so I rename variables in columns 25 to 43 by removing spaces
+col_indices <- 25:43
+new_col_names <- gsub(" ", "_", colnames(datum)[col_indices])  # Replace spaces with underscores
+
+# Rename the columns
+colnames(datum)[col_indices] <- new_col_names
+
+# Distance Matrices with and without latitude (without latitude and longitude only used for graphics)
+dist_mat <- as.matrix(dist(datum[,c(1,2,19,25:43)]))
+dist_mat2 <- as.matrix(dist(datum[,c(19,25:43)]))
+
+# Extract relevant columns for model training
+predictor_columns <- c("Latitude", "Longitude", colnames(datum)[25:43])
+predictor_columns2 <- c(colnames(datum)[25:43])
+
+# Assesses spatial autocorrelation of response variable and predictors across thresholds
+spatialRF::plot_training_df_moran(
+  data = datum[,c(19, 25:43)],
+  dependent.variable.name = "As",
+  predictor.variable.names = predictor_columns2,
+  distance.matrix = dist_mat,
+  fill.color = viridis::viridis(
+    100,
+    option = "F",
+    direction = -1), 
+  ## NOTE: Lower p-values and Moran's I values indicate there is no spatial autocorrelation for given variable and distance threshold
+point.color = "gray40")
+
