@@ -27,7 +27,7 @@ library(spgwr)        # GW Regression
 library(raster)       # Shapefiles
 library(MASS)         # Regression variable selection
 library(leaps)        # Regression variable selection
-library(SpatialML)    # Spatial RF
+library(spatialRF)    # Spatial RF
 library(deldir)       # Delauney tessellations
 
 
@@ -573,80 +573,4 @@ for (cols in colnames(new_datum[44:48])){
 }
 
 #### Spatial Data Analysis - Random Forest ####
-
-## It allows for the investigation of the existence of spatial non-stationarity, in the relationship between a dependent
-## and a set of independent variables. The latter is possible by fitting a sub-model for each observation in space, taking
-## into account the neighbouring observations. This technique adopts the idea of the Geographically Weighted Regression, Kalogirou (2003).
-## The main difference between a tradition (linear) GWR and GRF is that we can model non-stationarity coupled with a flexible
-## non-linear model which is very hard to overfit due to its bootstrapping nature, thus relaxing the assumptions of traditional
-## Gaussian statistics. Essentially, it was designed to be a bridge between machine learning and geographical models,
-## combining inferential and explanatory power.
-
-# Spatial Random Forest
-new_df <- (datum[datum$As != 0.000, c(1,2, 19, 25:43)])
-coords <- new_df[,1:2]
-
-# It's picky about the column names
-new_column_names <- paste0("V", 1:19)  # Generate new column names "V1" to "V19"
-colnames(new_df)[4:22] <- new_column_names  # Assign new column names to columns
-
-# Optimal mtry
-optimtry <- rf.mtry.optim(As ~ V2 + V7 + V12 + V18, dataset = new_df)
-
-# Find adaptive optimal bandwidth selection
-GRFBandwidth1 <- grf.bw(As ~ V1 + V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19,
-                       dataset = new_df,
-                       bw.min = 50,
-                       bw.max = 500,
-                        mtry = 1,
-                       step = 5,
-                       kernel = "adaptive",
-                       weighted = TRUE,
-                       coords = coords)
-
-GRFBandwidth2 <- grf.bw(As ~ V2 + V7 + V12 + V18,
-                        dataset = new_df,
-                        bw.min = 20,
-                        bw.max = 150,
-                        step = 5,
-                        mtry = 1,
-                        kernel = "adaptive",
-                        weighted = TRUE,
-                        coords = coords)
-
-# Spatial random forest with optimal mtry, bandwidth
-spatial_rf <- grf(As ~ V1 + V2 + V3 + V4 + V5 + V6 + V7 + V8 + V9 + V10 + V11 + V12 + V13 + V14 + V15 + V16 + V17 + V18 + V19,
-                  dframe = new_df, kernel = "adaptive", mtry = 1, bw = 50, coords = coords, weighted = TRUE)
-
-## Resultant random forest has weird R2 properties. The global testing set is high, but the OOB is negative. MSE also high.
-## In the context of the SpatialML package and the grf implementation, a negative local R-squared (OOB) suggests that the
-## spatial random forest model's predictions perform worse than the average response value in the out-of-bag (OOB) samples
-## for a specific local region. It indicates that the model is not capturing the spatial patterns or relationships present in that particular region,
-## resulting in poor predictive performance.
-
-## Attempting to fit a smaller RF based off the variables selected in the stepwise regression
-
-spatial_rf_2 <- grf(As ~ V2 + V7 + V12 + V18 + V19,
-                    dframe = new_df,
-                    kernel = "adaptive",
-                    bw = 30,
-                    mtry = 1,
-                    ntree = 500,
-                    coords = coords,
-                    weighted = TRUE)
-
-## The global testing R2 is worse, but the OOB R2 is finally not negative. Variance measures are quite high.
-## There seems to be a bit of an issue.
-
-spatial_rf_3 <- grf(As ~ V2 + V18 + V13 + V19,
-                    dframe = new_df,
-                    kernel = "adaptive",
-                    bw = 30,
-                    mtry = 1,
-                    ntree = 500,
-                    coords = coords,
-                    weighted = TRUE)
-
-
-
 
