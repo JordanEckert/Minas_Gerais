@@ -621,6 +621,7 @@ spatialRF::plot_training_df_moran(
     100,
     option = "F",
     direction = -1), 
-  ## NOTE: Lower p-values and Moran's I values indicate there is no spatial autocorrelation for given variable and distance threshold
-point.color = "gray40")
+  point.color = "gray40")
+
+## NOTE: Lower p-values and Moran's I values indicate there is no spatial autocorrelation for given variable and distance threshold
 
