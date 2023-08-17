@@ -625,3 +625,4 @@ spatialRF::plot_training_df_moran(
 
 ## NOTE: Lower p-values and Moran's I values indicate there is no spatial autocorrelation for given variable and distance threshold
 
+
