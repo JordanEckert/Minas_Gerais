@@ -3,7 +3,7 @@
 # Attach packages - Data Cleaning
 library(readxl)        # Loading excel dataset
 library(tidyverse)     # Data manipulation
-library(magrittr)      # Pipe operator
+library(dplyr)         # Pipe operator
 library(spatstat.geom) # Distances
 
 # Attach packages
@@ -29,6 +29,8 @@ library(MASS)         # Regression variable selection
 library(leaps)        # Regression variable selection
 library(spatialRF)    # Spatial RF
 library(deldir)       # Delauney tessellations
+
+library(kableExtra)
 
 
 #### Data Cleaning ####
@@ -625,4 +627,230 @@ spatialRF::plot_training_df_moran(
 
 ## NOTE: Lower p-values and Moran's I values indicate there is no spatial autocorrelation for given variable and distance threshold
 
+# Rename Latitude to x and Longitude to y
+colnames(datum)[colnames(datum) == "Latitude"] <- "x"
+colnames(datum)[colnames(datum) == "Longitude"] <- "y"
 
+#coordinates of the cases
+xy <- datum[, c("x", "y")]
+
+# Train the non-spatial random forest model
+model.non.spatial <- spatialRF::rf(
+  data = datum[,c(1,2,19, 25:43)],
+  dependent.variable.name = "As",
+  predictor.variable.names = colnames(datum[,c(1,2,25:43)]),
+  distance.matrix = as.matrix(dist(datum[,c(1,2,19,25:43)])),
+  xy = xy,
+  seed = 2023,
+  verbose = TRUE
+)
+
+# Residuals
+spatialRF::plot_residuals_diagnostics(
+  model.non.spatial,
+  verbose = FALSE
+)
+
+# Global Variable Importance
+spatialRF::plot_importance(
+  model.non.spatial,
+  verbose = FALSE
+)
+
+library(randomForestExplainer)
+
+importance.df <- randomForestExplainer::measure_importance(
+  model.non.spatial,
+  measures = c("mean_min_depth", "no_of_nodes", "times_a_root", "p_value")
+)
+
+kableExtra::kbl(
+  importance.df %>% 
+    dplyr::arrange(mean_min_depth) %>% 
+    dplyr::mutate(p_value = round(p_value, 4)),
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
+# Model transferability - evaluates non spatial model spatially
+model.non.spatial <- spatialRF::rf_importance(
+  model = model.non.spatial
+)
+
+model.non.spatial$importance$per.variable %>% 
+  ggplot2::ggplot() +
+  ggplot2::aes(
+    x = importance.oob,
+    y = importance.cv
+  ) + 
+  ggplot2::geom_point(size = 3) + 
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Importance (out-of-bag)") + 
+  ggplot2::ylab("Contribution to transferability") + 
+  ggplot2::geom_smooth(method = "lm", formula = y ~ x, color = "red4")
+
+## Importance and contribution show very little correlation with each other, 
+## this indicates that the importance measures seem to capture the same aspects
+## of the effects of the variables on the model results
+
+# Local variable importance
+local.importance <- spatialRF::get_importance_local(model.non.spatial)
+
+kableExtra::kbl(
+  round(local.importance[1:10,], 0),
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
+## Larger values indicated a larger average error when estimating a case
+## with the permuted version of the variable. Aka more important variables show
+## larger values
+
+# Response curve table
+reponse.curves.df <- spatialRF::get_response_curves(model.non.spatial)
+
+kableExtra::kbl(
+  head(reponse.curves.df, n = 10),
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
+# Response surface
+spatialRF::plot_response_surface(
+  model.non.spatial,
+  a = "As",
+  b = "pH_H2O",
+)
+
+# Evaluating random forest model spatially
+model.non.spatial <- spatialRF::rf_evaluate(
+  model = model.non.spatial,
+  xy = xy,                  #data coordinates
+  repetitions = 30,         #number of spatial folds
+  training.fraction = 0.75, #training data fraction on each fold
+  metrics = "r.squared",
+  verbose = TRUE
+)
+
+spatialRF::plot_evaluation(model.non.spatial)
+
+## Evaluations show poor performance across the spatial folds
+
+# We see that there is spatial autocorrelation of residuals
+spatialRF::plot_moran(
+  model.non.spatial, 
+  verbose = FALSE
+)
+
+# Spatial Random Forest - need to clean the dataset names and rerun everything first
+library(janitor)
+datum <- datum %>% clean_names()
+
+# Train the non-spatial random forest model
+model.non.spatial <- spatialRF::rf(
+  data = datum[,c(1,2,19, 25:43)],
+  dependent.variable.name = "as",
+  predictor.variable.names = colnames(datum[,c(1,2,25:43)]),
+  distance.matrix = as.matrix(dist(datum[,c(1,2,19,25:43)])),
+  xy = xy,
+  seed = 2023,
+  verbose = TRUE
+)
+
+model.non.spatial <- spatialRF::rf_importance(
+  model = model.non.spatial
+)
+
+model.spatial <- spatialRF::rf_spatial(
+  model = model.non.spatial,
+  method = "mem.moran.sequential", #default method
+  verbose = TRUE,
+)
+
+spatial.importance.df <- randomForestExplainer::measure_importance(
+  model.spatial,
+  measures = c("mean_min_depth", "no_of_nodes", "times_a_root", "p_value")
+)
+
+kableExtra::kbl(
+  spatial.importance.df %>% 
+    dplyr::arrange(mean_min_depth) %>% 
+    dplyr::mutate(p_value = round(p_value, 4)),
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
+# Comparing Variable Importance
+
+p1 <- spatialRF::plot_importance(
+  model.non.spatial, 
+  verbose = FALSE) + 
+  ggplot2::ggtitle("Non-spatial model") 
+
+p2 <- spatialRF::plot_importance(
+  model.spatial,
+  verbose = FALSE) + 
+  ggplot2::ggtitle("Spatial model")
+
+p1 | p2 
+
+# But what are spatial predictors? 
+##Spatial predictors, as shown below, are smooth surfaces representing 
+## neighborhood among records at different spatial scales. Eigenvectors from the Moran Maps are 
+## the spatial predictors. 
+
+# Selection of spatial predictor
+p <- spatialRF::plot_optimization(model.spatial)
+
+## The spatial predictors are included in the model one by one, 
+## in the order of their Moran’s I 
+## (spatial predictors with Moran’s I lower than 0 are removed). 
+
+## The selection procedure is performed by the function select_spatial_predictors_sequential(), 
+## which finds the smaller subset of spatial predictors maximizing the model’s 
+## R squared, and minimizing the Moran’s I of the residuals. 
+
+## This is shown in the optimization plot (dots linked by lines represent the selected spatial predictors).
+
+# Comparing models
+comparison <- spatialRF::rf_compare(
+  models = list(
+    `Non-spatial` = model.non.spatial,
+    `Spatial` = model.spatial
+  ),
+  xy = xy,
+  repetitions = 5,
+  training.fraction = 0.75,
+  metrics = "r.squared",
+  seed = 2023
+)
+
+x <- comparison$comparison.df %>% 
+  dplyr::group_by(model, metric) %>% 
+  dplyr::summarise(value = round(median(value), 3)) %>% 
+  dplyr::arrange(metric) %>% 
+  as.data.frame()
+
+colnames(x) <- c("Model", "Metric", "Median")
+
+kableExtra::kbl(
+  x,
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
+model.spatial <- spatialRF::rf_importance(
+  model = model.spatial
+)
+
+model.spatial$importance$per.variable %>% 
+  ggplot2::ggplot() +
+  ggplot2::aes(
+    x = importance.oob,
+    y = importance.cv
+  ) + 
+  ggplot2::geom_point(size = 3) + 
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Importance (out-of-bag)") + 
+  ggplot2::ylab("Contribution to transferability") + 
+  ggplot2::geom_smooth(method = "lm", formula = y ~ x, color = "red4")
