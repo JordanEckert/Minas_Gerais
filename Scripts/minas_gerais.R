@@ -138,6 +138,8 @@ for(cols in colnames(datum[5:24])){
   boxplot(datum[[cols]] ~ datum$Zones, xlab = "Labs", ylab = paste(cols), main = paste("Boxplot of", cols, "by Zones"))
 }
 
+boxplot(datum$As ~ datum$Zones, xlab = "Labs", ylab = "Arsenic", main = paste("Boxplot of Arsenic by Zone"))
+
 # Boxplots of Soil Properties by Zones
 for(cols in colnames(datum[25:43])){
   boxplot(datum[[cols]] ~ datum$Zones, xlab = "Labs", ylab = paste(cols), main = paste("Boxplot of", cols))
@@ -207,8 +209,9 @@ for (i in which(corr_flat2$cor > .50, arr.ind = T)){
 corr5 <- cor(datum[,5:43])
 corr5
 
-cor_plot3 <- corrplot(corr5, type = "upper", method = "shade", main = "Correlation Plot of Heavy Metals and Soil Properties")
+cor_plot3 <- corrplot(corr5, type = "upper", method = "shade")
 cor_plot3
+title("Correlation Plot of Heavy Metals and Soil Properties", adj = 0, line = -25)
 
 corr6 <- rcorr(as.matrix(datum[5:43]))
 corr_flat3 <- flattenCorrMatrix(round(corr6$r,2), round(corr6$P,2))
@@ -299,39 +302,42 @@ plot(multi_vario_soil$d, multi_vario_soil$var,type = 'b', pch = 20, xlab = "Dist
 ## Gabriel graphs. These graphs have an edge between points if the two points are closes to their midpoint, with no other given point being as close. 
 ## The second is through creating polygon areas based on distances from points and their overlaps. 
 
-## Neighborhood based on the Relative Neighborhood Graph
-nb.datum<- graph2nb(gabrielneigh(datum[,c(1,2)]), sym = TRUE)
+
+
+
+
+
 
 #### Alternative Neighborhood Construction Method Could be Based on Distances ####
 ## Peeling off different zones as categories
-#TO_datum <- spatial_datum[spatial_datum$Zones == "TO", ]
-#SF_datum <- spatial_datum[spatial_datum$Zones == "SF", ]
-#PR_datum <- spatial_datum[spatial_datum$Zones == "PR", ]
-#MA_datum <- spatial_datum[spatial_datum$Zones == "MA", ]
+TO_datum <- spatial_datum[spatial_datum$Zones == "TO", ]
+SF_datum <- spatial_datum[spatial_datum$Zones == "SF", ]
+PR_datum <- spatial_datum[spatial_datum$Zones == "PR", ]
+MA_datum <- spatial_datum[spatial_datum$Zones == "MA", ]
 
 ## Changing indexes to be correct
-#rownames(SF_datum) <- 35:489
-#rownames(PR_datum) <- 490:568
-#rownames(MA_datum) <- 569:696
+rownames(SF_datum) <- 35:489
+rownames(PR_datum) <- 490:568
+rownames(MA_datum) <- 569:696
 
 ## Create polygon area around each zone - Allows for adaptive polygon creation based on Zone
-#buf1 <- st_buffer(TO_datum, dist = 27500)
-#plot(buf1[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for TO")
-#
-#buf2 <- st_buffer(SF_datum, dist = 20000)
-#plot(buf2[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for SF")
+buf1 <- st_buffer(TO_datum, dist = 27500)
+plot(buf1[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for TO")
 
-#buf3 <- st_buffer(PR_datum, dist = 35000) 
-#plot(buf3[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for PR")
+buf2 <- st_buffer(SF_datum, dist = 20000)
+plot(buf2[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for SF")
 
-#buf4 <- st_buffer(MA_datum, dist = 40000)
-#plot(buf4[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for MA")
+buf3 <- st_buffer(PR_datum, dist = 35000) 
+plot(buf3[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for PR")
+
+buf4 <- st_buffer(MA_datum, dist = 40000)
+plot(buf4[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Polygon Area for MA")
 
 ## Combining polygon areas
-#buf <- rbind(buf1, buf2, buf3, buf4)
+buf <- rbind(buf1, buf2, buf3, buf4)
 
 ## Creating spatial neighborhood based on zones
-#nb.datum <- poly2nb(buf, row.names = spatial_datum) # From polygons calculated above
+nb.datum <- poly2nb(buf, row.names = spatial_datum) # From polygons calculated above
 
 ## Further differences can be explored using diffnb() if wanted
 
@@ -624,27 +630,7 @@ spatialRF::plot_training_df_moran(
     option = "F",
     direction = -1), 
   point.color = "gray40")
-
-## NOTE: Lower p-values and Moran's I values indicate there is no spatial autocorrelation for given variable and distance threshold
-
-# Rename Latitude to x and Longitude to y
-colnames(datum)[colnames(datum) == "Latitude"] <- "x"
-colnames(datum)[colnames(datum) == "Longitude"] <- "y"
-
-#coordinates of the cases
-xy <- datum[, c("x", "y")]
-
-# Train the non-spatial random forest model
-model.non.spatial <- spatialRF::rf(
-  data = datum[,c(1,2,19, 25:43)],
-  dependent.variable.name = "As",
-  predictor.variable.names = colnames(datum[,c(1,2,25:43)]),
-  distance.matrix = as.matrix(dist(datum[,c(1,2,19,25:43)])),
-  xy = xy,
-  seed = 2023,
-  verbose = TRUE
-)
-
+d
 # Residuals
 spatialRF::plot_residuals_diagnostics(
   model.non.spatial,
@@ -838,10 +824,6 @@ kableExtra::kbl(
   format = "html"
 ) %>%
   kableExtra::kable_paper("hover", full_width = F)
-
-model.spatial <- spatialRF::rf_importance(
-  model = model.spatial
-)
 
 model.spatial$importance$per.variable %>% 
   ggplot2::ggplot() +

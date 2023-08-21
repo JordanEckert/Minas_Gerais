@@ -1,34 +1,24 @@
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
+## This is the analysis used for the paper on spatial analysis of the Minas Gerais region
 
 # Attach packages - Data Cleaning
-library(readxl)        # Loading excel dataset
-library(tidyverse)     # Data manipulation
-library(magrittr)      # Pipe operator
-library(spatstat.geom) # Distances
+library(readxl)                   # Loading excel dataset
+library(tidyverse)                # Data manipulation
+library(dplyr)                    # Pipe operator
+library(janitor)                  # Clean variable names
 
-# Attach packages
-library(GWmodel)      # Geographically weighted models
-library(sp)           # Data management
-library(spdep)        # Spatial autocorrelation
-library(gstat)        # Geostatistics
-library(RColorBrewer) # Visualization
-library(classInt)     # Class intervals
-library(gridExtra)    # Multiple plot
-library(ggplot2)      # Multiple plot
-library(leaflet)      # Creating geographic maps
-library(corrplot)     # Correlation plots
-library(Hmisc)        # Correlation analysis
-library(ade4)         # Spatial analysis suite
-library(adespatial)   # Spatial analysis suite
-library(adegraphics)  # Spatial plotting suite
-library(sf)           # Spatial analysis suite
-library(umap)         # UMAP algorithm
-library(spgwr)        # GW Regression
-library(raster)       # Shapefiles
-library(MASS)         # Regression variable selection
-library(leaps)        # Regression variable selection
-library(SpatialML)    # Spatial RF
-library(deldir)       # Delauney tessellations
+# Attach packages - Exploratory Analysis
+library(leaflet)                  # Creating geographic maps
+library(corrplot)                 # Correlation plots
+library(gstat)                    # Variogram
+library(adespatial)               # Multivariate variogram
+library(ggplot2)                  # Graphical interface suite
+
+# Attach packages - Spatial Random Forest
+library(spatialRF)                # Spatial Random Forest
+library(kableExtra)               # HTML Tables Exported 
+library(randomForestExplainer)    # Variable Importance
+
 
 
 #### Data Cleaning ####
@@ -123,8 +113,7 @@ str(datum)
 ## Soil Properties are in columns 25:43 ....
 
 
-
-#### Exploratory Data Analysis - Graphics ####
+#### Exploratory Data Analysis ####
 
 # Leaflet map of each (complete) sampled point, hovering over gives the Zone
 map <- leaflet(datum) %>%
@@ -133,8 +122,431 @@ map <- leaflet(datum) %>%
              label = datum$Zones)
 map
 
-# Plot of Spatial Visualizations for Arsenic
+# Nonspatial correlation plot - Heavy Metals and Soil Properties 
+corr5 <- cor(datum[,5:43])
+corr5
+
+cor_plot3 <- corrplot(corr5, type = "upper", method = "shade")
+cor_plot3
+title("Correlation Plot of Heavy Metals and Soil Properties", adj = 0, line = -25)
+
+## Highest correlation between a metal and soil property is:
+## Al     Clay 0.69
+
+## Most of the high correlations seems to come from within groups ....
+## Metals with metals, soil properties with soil properties ...
+##
+## However, all correlation analysis has not accounted for spatial autocorrelations ...
+
+# Variogram for Arsenic
+vario <- variogram(datum[,19], datum[,1:2])
+plot(vario$dist, vario$gamma, type = "b", pch = 20,
+     xlab = "Distance", ylab = "C(distance)", main = paste("Variogram for Arsenic"))
+
+# Multivariate Variogram for Soil Property - strictly equivalent to summing individual ones
+multi_vario_soil = variogmultiv(datum[,25:43], datum[,1:2])
+plot(multi_vario_soil$d, multi_vario_soil$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)", main = "Multivariate Variogram for Soil Properties")
+
+# Creating arsenic levels variable
+datum$AsLevel <- as.factor(ifelse(datum$As >= 8.0, "High", "Low"))
+
+# Count table for imbalance checks
+table(datum$AsLevel)
+
+## 202 out of the 696 are high levels of Arsenic (~30%)
+## Is there a local imbalance of high levels?
+
+# Create a scatter plot of As values across region
+as_plot <- ggplot(datum, aes(x = Longitude, y = Latitude)) + 
+  geom_point(aes(size = As, color = AsLevel), alpha = 0.7) + 
+  scale_size_continuous(range = c(2, 10), name = "Arsenic Value") + 
+  labs(title = "Distribution of Arsenic Values Across Minas Gerais Region",
+       x = "Longitude", y = "Latitude", color = "Arsenic Level") + 
+  theme_minimal()
+
+# Print the scatter plot
+print(as_plot)
 
 
+#### Spatial Random Forest ####
+
+# It's picky about the column names, so I rename variables in columns 25 to 43 by removing spaces.
+col_indices <- 25:43
+new_col_names <- gsub(" ", "_", colnames(datum)[col_indices])  # Replace spaces with underscores
+
+## Naming will be changed back when doing further analysis sections for simplicity
+## Allows code to be run in sections in case specific analysis is targeted
+
+# Rename the columns
+colnames(datum)[col_indices] <- new_col_names
+
+# Distance Matrices with and without latitude (without latitude and longitude only used for graphics)
+dist_mat <- as.matrix(dist(datum[,c(1,2,19,25:43)]))
+dist_mat2 <- as.matrix(dist(datum[,c(19,25:43)]))
+
+# Extract relevant columns for model training
+predictor_columns <- c("Latitude", "Longitude", colnames(datum)[25:43])
+predictor_columns2 <- c(colnames(datum)[25:43])
+
+# Plot of Moran Maps across thresholds
+spatialRF::plot_training_df_moran(
+  data = datum[,c(19, 25:43)],
+  dependent.variable.name = "As",
+  predictor.variable.names = predictor_columns2,
+  distance.matrix = dist_mat,
+  fill.color = viridis::viridis(
+    100,
+    option = "F",
+    direction = -1), 
+  point.color = "black")
 
 
+## NOTE: Lower p-values and Moran's I values indicate there is no spatial 
+## autocorrelation for given variable and distance threshold
+
+# Rename Latitude to x and Longitude to y required in package
+colnames(datum)[colnames(datum) == "Latitude"] <- "x"
+colnames(datum)[colnames(datum) == "Longitude"] <- "y"
+
+# Coordinates of the cases
+xy <- datum[, c("x", "y")]
+
+# Train the non-spatial random forest model
+model.non.spatial <- spatialRF::rf(
+  data = datum[,c(1,2,19, 25:43)],
+  dependent.variable.name = "As",
+  predictor.variable.names = colnames(datum[,c(1,2,25:43)]),
+  distance.matrix = as.matrix(dist(datum[,c(1,2,19,25:43)])),
+  xy = xy,
+  scaled.importance = TRUE,
+  seed = 2023,
+  verbose = TRUE
+)
+
+## Variable importance represents the increase in mean error 
+## (computed on the out-of-bag data) across trees when a predictor is permuted.
+
+## Values lower than zero would indicate that the variable performs worse than 
+## a random one.
+
+# Variable Importance of nonspatial random forest through randomForestExplainer
+importance.df <- randomForestExplainer::measure_importance(
+  model.non.spatial,
+  measures = c("mean_min_depth", "no_of_nodes", "times_a_root", "p_value")
+)
+
+kableExtra::kbl(
+  importance.df %>% 
+    dplyr::arrange(mean_min_depth) %>% 
+    dplyr::mutate(p_value = round(p_value, 4)),
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
+# Contribution of predictors to model transferability - spatial folds measured with rf_evaluate()
+model.non.spatial <- spatialRF::rf_importance(
+  model = model.non.spatial
+)
+
+model.non.spatial$importance$per.variable %>% 
+  ggplot2::ggplot() +
+  ggplot2::aes(
+    x = importance.oob,
+    y = importance.cv
+  ) + 
+  ggplot2::geom_point(size = 3) + 
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Importance (out-of-bag)") + 
+  ggplot2::ylab("Contribution to transferability") + 
+  ggplot2::geom_smooth(method = "lm", formula = y ~ x, color = "red4")
+
+## Importance and contribution show very little correlation with each other, 
+## this indicates that the importance measures seem to capture the same aspects
+## of the effects of the variables on the model results
+
+# Model performance
+spatialRF::print_performance(model.non.spatial)
+
+# Spatial cross-validation
+model.non.spatial <- spatialRF::rf_evaluate(
+  model = model.non.spatial,
+  xy = xy,                  #data coordinates
+  repetitions = 30,         #number of spatial folds
+  training.fraction = 0.75, #training data fraction on each fold
+  metrics = "r.squared",,
+  verbose = TRUE
+)
+
+# Plot of spatial cross-validation
+spatialRF::plot_evaluation(model.non.spatial)
+
+# Comparison of different spatial folds
+pr <- datum[, c("x", "y")]
+pr$group.2 <- pr$group.1 <- "Training"
+pr[model.non.spatial$evaluation$spatial.folds[[1]]$testing, "group.1"] <- "Testing"
+pr[model.non.spatial$evaluation$spatial.folds[[25]]$testing, "group.2"] <- "Testing"
+
+p1 <- ggplot2::ggplot() +
+  ggplot2::geom_point(data = pr,
+                      ggplot2::aes(
+                        x = x,
+                        y = y,
+                        color = group.1
+                      ),
+                      size = 2
+  ) +
+  ggplot2::scale_color_viridis_d(
+    direction = -1, 
+    end = 0.5, 
+    alpha = 0.8, 
+    option = "F"
+  ) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(color = "Group") +
+  ggplot2::scale_x_continuous() +
+  ggplot2::scale_y_continuous()  +
+  ggplot2::ggtitle("Spatial fold 1") + 
+  ggplot2::theme(
+    legend.position = "none", 
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  ) + 
+  ggplot2::xlab("Longitude") + 
+  ggplot2::ylab("Latitude")
+
+p2 <- ggplot2::ggplot() +
+  ggplot2::geom_point(data = pr,
+                      ggplot2::aes(
+                        x = x,
+                        y = y,
+                        color = group.2
+                      ),
+                      size = 2
+  ) +
+  ggplot2::scale_color_viridis_d(
+    direction = -1, 
+    end = 0.5, 
+    alpha = 0.8, 
+    option = "F"
+  ) +
+  ggplot2::theme_bw() +
+  ggplot2::labs(color = "Group") +
+  ggplot2::scale_x_continuous() +
+  ggplot2::scale_y_continuous() +
+  ggplot2::theme(
+    plot.title = ggplot2::element_text(hjust = 0.5)
+  ) + 
+  ggplot2::ggtitle("Spatial fold 25") + 
+  ggplot2::xlab("Longitude") + 
+  ggplot2::ylab("")
+
+p1 | p2
+
+# Plot of Multiscale Moran's I
+spatialRF::plot_moran(
+  model.non.spatial, 
+  verbose = FALSE
+)
+
+# Need to clean the dataset names and rerun everything first
+datum <- datum %>% clean_names()
+
+# Train the non-spatial random forest model under new names
+model.non.spatial <- spatialRF::rf(
+  data = datum[,c(1,2,19, 25:43)],
+  dependent.variable.name = "as",
+  predictor.variable.names = colnames(datum[,c(1,2,25:43)]),
+  distance.matrix = as.matrix(dist(datum[,c(1,2,19,25:43)])),
+  xy = xy,
+  seed = 2023,
+  verbose = TRUE
+)
+
+model.non.spatial <- spatialRF::rf_importance(
+  model = model.non.spatial
+)
+
+# Spatial Model
+model.spatial <- spatialRF::rf_spatial(
+  model = model.non.spatial,
+  method = "mem.moran.sequential", #default method
+  verbose = TRUE,
+  scaled.importance = TRUE
+)
+
+# Hyperparameter Tuning
+model.spatial <- rf_tuning(
+  model = model.spatial,
+  xy = xy,
+  repetitions = 30,
+  num.trees = c(500, 1000),
+  mtry = seq(
+    2,
+    length(model.spatial$ranger.arguments$predictor.variable.names), #number of predictors
+    by = 5),
+  min.node.size = c(5, 10),
+  verbose = TRUE
+)
+
+# Spatial Residual Diagnostics
+spatialRF::plot_residuals_diagnostics(
+  model.spatial,
+  verbose = FALSE
+)
+
+# Variable Importance of spatial random forest through randomForestExplainer
+importance.df <- randomForestExplainer::measure_importance(
+  model.spatial,
+  measures = c("mean_min_depth", "no_of_nodes", "times_a_root", "p_value")
+)
+
+kableExtra::kbl(
+  importance.df %>% 
+    dplyr::arrange(mean_min_depth) %>% 
+    dplyr::mutate(p_value = round(p_value, 4)),
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
+# Contribution of predictors to model transferability - spatial folds measured with rf_evaluate()
+model.spatial <- spatialRF::rf_importance(
+  model = model.spatial
+)
+
+model.spatial$importance$per.variable %>% 
+  ggplot2::ggplot() +
+  ggplot2::aes(
+    x = importance.oob,
+    y = importance.cv
+  ) + 
+  ggplot2::geom_point(size = 3) + 
+  ggplot2::theme_bw() +
+  ggplot2::xlab("Importance (out-of-bag)") + 
+  ggplot2::ylab("Contribution to transferability") + 
+  ggplot2::geom_smooth(method = "lm", formula = y ~ x, color = "red4")
+
+# Local variable importance
+local.importance <- spatialRF::get_importance_local(model.spatial)
+
+# Response Curves - Not Graphically interesting results with data shown
+spatialRF::plot_response_curves(
+  model.spatial,
+  quantiles = c(0.1, 0.5, 0.9),
+  line.color = viridis::viridis(
+    3, #same number of colors as quantiles
+    option = "F", 
+    end = 0.9
+  ),
+  ncol = 4,
+  show.data = FALSE
+)
+
+# Individual Response curves at three different quantiles
+spatialRF::plot_response_curves(
+  model.spatial,
+  quantiles = 0.1,
+  ncol = 3
+)
+
+spatialRF::plot_response_curves(
+  model.spatial,
+  quantiles = 0.5,
+  ncol = 3
+)
+
+spatialRF::plot_response_curves(
+  model.spatial,
+  quantiles = 0.9,
+  ncol = 3
+)
+
+# Response surfaces
+spatialRF::plot_response_surface(
+  model.spatial,
+  a = "clay",
+  b = "ca2"
+)
+
+# Model Performance
+spatialRF::print_performance(model.spatial)
+
+# Spatial Cross Validation
+model.spatial <- spatialRF::rf_evaluate(
+  model = model.spatial,
+  xy = xy,                  #data coordinates
+  repetitions = 30,         #number of spatial folds
+  training.fraction = 0.75, #training data fraction on each fold
+  metrics = "r.squared",
+  verbose = FALSE
+)
+
+spatialRF::plot_evaluation(model.spatial)
+
+spatialRF::print_evaluation(model.spatial)
+
+# Moran's I
+spatialRF::plot_moran(
+  model.spatial, 
+  verbose = FALSE
+)
+
+# Comparison of importance
+p1 <- spatialRF::plot_importance(
+  model.non.spatial, 
+  verbose = FALSE) + 
+  ggplot2::ggtitle("Non-spatial model") 
+
+p2 <- spatialRF::plot_importance(
+  model.spatial,
+  verbose = FALSE) + 
+  ggplot2::ggtitle("Spatial model")
+
+p1 | p2 
+
+# Map of Spatial Predictors
+spatial.predictors <- spatialRF::get_spatial_predictors(model.spatial)
+pr <- data.frame(spatial.predictors, datum[, c("x", "y")])
+
+p1 <- ggplot2::ggplot() +
+  ggplot2::geom_point(
+    data = pr,
+    ggplot2::aes(
+      x = x,
+      y = y,
+      color = spatial_predictor_0_13
+    ),
+    size = 2.5
+  ) +
+  ggplot2::scale_color_viridis_c(option = "F") +
+  ggplot2::theme_bw() +
+  ggplot2::labs(color = "Eigenvalue") +
+  ggplot2::scale_x_continuous() +
+  ggplot2::scale_y_continuous()  +
+  ggplot2::ggtitle("Variable: spatial_predictor_0_13") + 
+  ggplot2::theme(legend.position = "bottom")+ 
+  ggplot2::xlab("Longitude") + 
+  ggplot2::ylab("Latitude")
+
+p2 <- ggplot2::ggplot() +
+  ggplot2::geom_point(
+    data = pr,
+    ggplot2::aes(
+      x = x,
+      y = y,
+      color = spatial_predictor_0_5,
+    ),
+    size = 2.5
+  ) +
+  ggplot2::scale_color_viridis_c(option = "F") +
+  ggplot2::theme_bw() +
+  ggplot2::labs(color = "Eigenvalue") +
+  ggplot2::scale_x_continuous() +
+  ggplot2::scale_y_continuous()  +
+  ggplot2::ggtitle("Variable: spatial_predictor_0_5") + 
+  ggplot2::theme(legend.position = "bottom") + 
+  ggplot2::xlab("Longitude") + 
+  ggplot2::ylab("")
+
+p1 | p2
+
+# Selection of Optimal Spatial Predictors
+p <- spatialRF::plot_optimization(model.spatial)
