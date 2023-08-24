@@ -373,19 +373,19 @@ model.spatial <- spatialRF::rf_spatial(
   scaled.importance = TRUE
 )
 
-# Hyperparameter Tuning
-model.spatial <- rf_tuning(
-  model = model.spatial,
-  xy = xy,
-  repetitions = 30,
-  num.trees = c(500, 1000),
-  mtry = seq(
-    2,
-    length(model.spatial$ranger.arguments$predictor.variable.names), #number of predictors
-    by = 5),
-  min.node.size = c(5, 10),
-  verbose = TRUE
-)
+# Hyperparameter Tuning - Results indicate that all possible results increase spatial autocorrelation 
+# model.spatial <- rf_tuning(
+#  model = model.spatial,
+#  xy = xy,
+#  repetitions = 30,
+#  num.trees = c(500, 1000),
+#  mtry = seq(
+#    2,
+#    length(model.spatial$ranger.arguments$predictor.variable.names), #number of predictors
+#    by = 5),
+#  min.node.size = c(5, 10),
+#  verbose = TRUE
+# )
 
 # Spatial Residual Diagnostics
 spatialRF::plot_residuals_diagnostics(
