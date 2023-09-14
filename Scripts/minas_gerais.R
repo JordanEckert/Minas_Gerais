@@ -169,6 +169,47 @@ as_plot <- ggplot(datum, aes(x = Longitude, y = Latitude)) +
 # Print the scatter plot
 print(as_plot)
 
+#### Moran's Maps ####
+
+# Spatial Dataframe
+prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+my_projection <- st_crs(prj4string)
+
+# Convert datum into sf object
+spatial_datum <- st_as_sf(datum, coords = c("x", "y"), crs = my_projection)
+
+# Create polygon area around each zone
+buf <- st_buffer(spatial_datum, dist = 35100)
+plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Buffer Distance for Each Point")
+
+# Creating spatial neighborhood based on zones
+nb.datum <- poly2nb(buf, row.names = datum$Zones) # From polygons calculated above
+
+# Simple row standardization for spatial weight matrix (SWM)
+listwdatum <- nb2listw(nb.datum, zero.policy = TRUE)
+
+# Moran Test for Arsenic
+MC.env <- moran.randtest(datum[,19], listwdatum, nrepet = 999, alter = "two-sided")
+MC.env
+
+# Decomposing Moran's Coefficient
+NP.As <- moranNP.randtest(datum$as, listwdatum, nrepet = 999, alter = "two-sided")
+NP.As
+
+plot(NP.As)
+
+# MULTISPATI Analysis
+pca.datum <- dudi.pca(datum[,c(19, 25:43)], scale = TRUE, scannf = FALSE, nf = 2)
+
+moran.randtest(pca.datum$li, listw = listwdatum)
+
+ms.datum <- adespatial::multispati(pca.datum, listw = listwdatum, scannf = FALSE)
+
+summary(ms.datum)
+
+g.ms.spe <- s.arrow(ms.datum$c1)
+
+
 
 #### Spatial Random Forest ####
 
@@ -275,7 +316,7 @@ model.non.spatial <- spatialRF::rf_evaluate(
   xy = xy,                  #data coordinates
   repetitions = 30,         #number of spatial folds
   training.fraction = 0.75, #training data fraction on each fold
-  metrics = "r.squared",,
+  metrics = "r.squared",
   verbose = TRUE
 )
 
@@ -307,7 +348,7 @@ p1 <- ggplot2::ggplot() +
   ggplot2::labs(color = "Group") +
   ggplot2::scale_x_continuous() +
   ggplot2::scale_y_continuous()  +
-  ggplot2::ggtitle("Spatial fold 1") + 
+  ggplot2::ggtitle("Spatial Fold 1") + 
   ggplot2::theme(
     legend.position = "none", 
     plot.title = ggplot2::element_text(hjust = 0.5)
@@ -337,7 +378,7 @@ p2 <- ggplot2::ggplot() +
   ggplot2::theme(
     plot.title = ggplot2::element_text(hjust = 0.5)
   ) + 
-  ggplot2::ggtitle("Spatial fold 25") + 
+  ggplot2::ggtitle("Spatial Fold 25") + 
   ggplot2::xlab("Longitude") + 
   ggplot2::ylab("")
 
@@ -464,8 +505,8 @@ spatialRF::plot_response_curves(
 # Response surfaces
 spatialRF::plot_response_surface(
   model.spatial,
-  a = "clay",
-  b = "ca2"
+  a = "p_h_k_cl",
+  b = "m_percent"
 )
 
 # Model Performance
@@ -504,6 +545,18 @@ p2 <- spatialRF::plot_importance(
 
 p1 | p2 
 
+# Model Transferability
+model.spatial <- spatialRF::rf_importance(
+  model = model.spatial
+)
+
+# 10 most important variables in spatial model
+kableExtra::kbl(
+  head(model.spatial$importance$per.variable, n = 10),
+  format = "html"
+) %>%
+  kableExtra::kable_paper("hover", full_width = F)
+
 # Map of Spatial Predictors
 spatial.predictors <- spatialRF::get_spatial_predictors(model.spatial)
 pr <- data.frame(spatial.predictors, datum[, c("x", "y")])
@@ -514,7 +567,7 @@ p1 <- ggplot2::ggplot() +
     ggplot2::aes(
       x = x,
       y = y,
-      color = spatial_predictor_0_13
+      color = spatial_predictor_175_1
     ),
     size = 2.5
   ) +
@@ -523,7 +576,7 @@ p1 <- ggplot2::ggplot() +
   ggplot2::labs(color = "Eigenvalue") +
   ggplot2::scale_x_continuous() +
   ggplot2::scale_y_continuous()  +
-  ggplot2::ggtitle("Variable: spatial_predictor_0_13") + 
+  ggplot2::ggtitle("Most Important Spatial Predictor from Neighborhood Distance 175 (1st Overall)") + 
   ggplot2::theme(legend.position = "bottom")+ 
   ggplot2::xlab("Longitude") + 
   ggplot2::ylab("Latitude")
@@ -534,7 +587,7 @@ p2 <- ggplot2::ggplot() +
     ggplot2::aes(
       x = x,
       y = y,
-      color = spatial_predictor_0_5,
+      color = spatial_predictor_0_34,
     ),
     size = 2.5
   ) +
@@ -543,7 +596,7 @@ p2 <- ggplot2::ggplot() +
   ggplot2::labs(color = "Eigenvalue") +
   ggplot2::scale_x_continuous() +
   ggplot2::scale_y_continuous()  +
-  ggplot2::ggtitle("Variable: spatial_predictor_0_5") + 
+  ggplot2::ggtitle("Most Important Spatial Predictor from Neighborhood Distance 0 (4th Overall)") + 
   ggplot2::theme(legend.position = "bottom") + 
   ggplot2::xlab("Longitude") + 
   ggplot2::ylab("")
@@ -554,42 +607,6 @@ p1 | p2
 p <- spatialRF::plot_optimization(model.spatial)
 
 
-#### Moran's Maps ####
-
-# Spatial Dataframe
-prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-my_projection <- st_crs(prj4string)
-
-# Convert datum into sf object
-spatial_datum <- st_as_sf(datum, coords = c("x", "y"), crs = my_projection)
-
-# Create polygon area around each zone
-buf <- st_buffer(spatial_datum, dist = 35100)
-plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Buffer Distance for Each Point")
-
-# Creating spatial neighborhood based on zones
-nb.datum <- poly2nb(buf, row.names = datum$Zones) # From polygons calculated above
-
-# Simple row standardization for spatial weight matrix (SWM)
-listwdatum <- nb2listw(nb.datum, zero.policy = TRUE)
-
-# Moran Test for Arsenic
-MC.env <- moran.randtest(datum[,19], listwdatum, nrepet = 999, alter = "two-sided")
-MC.env
-
-# Decomposing Moran's Coefficient
-NP.As <- moranNP.randtest(datum$As, listwdatum, nrepet = 999, alter = "two-sided")
-NP.As
-
-plot(NP.As)
-
-# MULTISPATI Analysis
-pca.datum <- dudi.pca(datum[,c(19, 25:43)], scale = TRUE, scannf = FALSE, nf = 2)
-ms.datum <- multispati(pca.datum, listw = listwdatum, scannf = FALSE)
-
-summary(ms.datum)
-
-g.ms.spe <- s.arrow(ms.datum$c1)
 
 
 
