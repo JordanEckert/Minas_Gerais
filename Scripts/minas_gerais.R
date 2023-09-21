@@ -132,6 +132,15 @@ cor_plot3 <- corrplot(corr5, type = "upper", method = "shade")
 cor_plot3
 title("Correlation Plot of Heavy Metals and Soil Properties", adj = 0, line = -25)
 
+# Nonspatial correlation plot - Arsenic and Soil Properties
+corr6 <- cor(datum[,c(19, 25:43)])
+corr6
+
+cor_plot4 <- corrplot(corr6, type = "upper", method = "shade")
+cor_plot4
+title("Correlation Plot of Arsenic and Soil Properties", adj = 0, line = -25)
+
+
 ## Highest correlation between a metal and soil property is:
 ## Al     Clay 0.69
 
@@ -144,6 +153,13 @@ title("Correlation Plot of Heavy Metals and Soil Properties", adj = 0, line = -2
 vario <- variogram(datum[,19], datum[,1:2])
 plot(vario$dist, vario$gamma, type = "b", pch = 20,
      xlab = "Distance", ylab = "C(distance)", main = paste("Variogram for Arsenic"))
+
+# Variogram for soil properties
+for(i in 25:43){
+  vario <- variogram(datum[,i], datum[,1:2])
+  plot(vario$dist, vario$gamma, type = "b", pch = 20,
+       xlab = "Distance", ylab = "C(distance)", main = paste("Variogram for", colnames(datum[,i])))
+}
 
 # Multivariate Variogram for Soil Property - strictly equivalent to summing individual ones
 multi_vario_soil = variogmultiv(datum[,25:43], datum[,1:2])
@@ -168,48 +184,6 @@ as_plot <- ggplot(datum, aes(x = Longitude, y = Latitude)) +
 
 # Print the scatter plot
 print(as_plot)
-
-#### Moran's Maps ####
-
-# Spatial Dataframe
-prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
-my_projection <- st_crs(prj4string)
-
-# Convert datum into sf object
-spatial_datum <- st_as_sf(datum, coords = c("x", "y"), crs = my_projection)
-
-# Create polygon area around each zone
-buf <- st_buffer(spatial_datum, dist = 35100)
-plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Buffer Distance for Each Point")
-
-# Creating spatial neighborhood based on zones
-nb.datum <- poly2nb(buf, row.names = datum$Zones) # From polygons calculated above
-
-# Simple row standardization for spatial weight matrix (SWM)
-listwdatum <- nb2listw(nb.datum, zero.policy = TRUE)
-
-# Moran Test for Arsenic
-MC.env <- moran.randtest(datum[,19], listwdatum, nrepet = 999, alter = "two-sided")
-MC.env
-
-# Decomposing Moran's Coefficient
-NP.As <- moranNP.randtest(datum$as, listwdatum, nrepet = 999, alter = "two-sided")
-NP.As
-
-plot(NP.As)
-
-# MULTISPATI Analysis
-pca.datum <- dudi.pca(datum[,c(19, 25:43)], scale = TRUE, scannf = FALSE, nf = 2)
-
-moran.randtest(pca.datum$li, listw = listwdatum)
-
-ms.datum <- adespatial::multispati(pca.datum, listw = listwdatum, scannf = FALSE)
-
-summary(ms.datum)
-
-g.ms.spe <- s.arrow(ms.datum$c1)
-
-
 
 #### Spatial Random Forest ####
 
@@ -505,8 +479,8 @@ spatialRF::plot_response_curves(
 # Response surfaces
 spatialRF::plot_response_surface(
   model.spatial,
-  a = "p_h_k_cl",
-  b = "m_percent"
+  a = "clay",
+  b = "cec"
 )
 
 # Model Performance
@@ -531,6 +505,8 @@ spatialRF::plot_moran(
   model.spatial, 
   verbose = FALSE
 )
+
+
 
 # Comparison of importance
 p1 <- spatialRF::plot_importance(
@@ -605,6 +581,48 @@ p1 | p2
 
 # Selection of Optimal Spatial Predictors
 p <- spatialRF::plot_optimization(model.spatial)
+
+#### Moran's Maps ####
+
+# Spatial Dataframe
+prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
+my_projection <- st_crs(prj4string)
+
+# Convert datum into sf object
+spatial_datum <- st_as_sf(datum, coords = c("x", "y"), crs = my_projection)
+
+# Create polygon area around each zone
+buf <- st_buffer(spatial_datum, dist = 35100)
+plot(buf[,1], pal = c("#ff7f00", "#e377c2", "#17becf", "#336633", "#0000FF"), main = "Buffer Distance for Each Point")
+
+# Creating spatial neighborhood based on zones
+nb.datum <- poly2nb(buf, row.names = datum$Zones) # From polygons calculated above
+
+# Simple row standardization for spatial weight matrix (SWM)
+listwdatum <- nb2listw(nb.datum, zero.policy = TRUE)
+
+# Moran Test for Arsenic
+MC.env <- moran.randtest(datum[,19], listwdatum, nrepet = 999, alter = "two-sided")
+MC.env
+
+# Decomposing Moran's Coefficient
+NP.As <- moranNP.randtest(datum$as, listwdatum, nrepet = 999, alter = "two-sided")
+NP.As
+
+plot(NP.As)
+
+# MULTISPATI Analysis
+pca.datum <- dudi.pca(datum[,c(19, 25:43)], scale = TRUE, scannf = FALSE, nf = 2)
+
+moran.randtest(pca.datum$li, listw = listwdatum)
+
+ms.datum <- adespatial::multispati(pca.datum, listw = listwdatum, scannf = FALSE)
+
+summary(ms.datum)
+
+g.ms.spe <- s.arrow(ms.datum$c1)
+
+
 
 
 
