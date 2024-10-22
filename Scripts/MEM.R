@@ -12,119 +12,108 @@ library(ade4)
 library(adespatial)
 library(adegraphics)
 library(spdep)
+library(sp)
 
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 ## This is the analysis used for the paper on spatial analysis of the Minas Gerais region
 
-# Attach packages - Data Cleaning
-library(readxl)                   # Loading excel dataset
-library(tidyverse)                # Data manipulation
-library(dplyr)                    # Pipe operator
-library(janitor)                  # Clean variable names
+datum <- read.csv("~/DataspellProjects/Minas_Gerais/Database/datum.csv")
+shape <- read.csv("~/DataspellProjects/Minas_Gerais/Database/shape.csv")
 
-# Attach packages - Exploratory Analysis
-library(leaflet)                  # Creating geographic maps
-library(corrplot)                 # Correlation plots
-library(gstat)                    # Variogram
-library(adespatial)               # Multivariate variogram
-library(ggplot2)                  # Graphical interface suite
+colnames(datum)[colnames(datum) == "V...."] <- "V_Percent"
+colnames(datum)[colnames(datum) == "m...."] <- "m_Percent"
 
-# Attach packages - Spatial Random Forest
-library(spatialRF)                # Spatial Random Forest
-library(kableExtra)               # HTML Tables Exported 
-library(randomForestExplainer)    # Variable Importance
-
-# Attach packages - Moran Eigenvector Maps
-library(spdep)                    # Nearest neighbor calculations
-library(ade4)                     # Multispati 
-
-#### Data Cleaning ####
-# Loading main database
-datum <- read_excel("~/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
-
-# PQL limits file
-PQL <- read_excel("~/DataspellProjects/Minas_Gerais/Database/PQL.xlsx", skip = 1)
-PQL <- PQL[-c(26:32),]  # Removing extra information not needed in R
-
-# Checking the structure of the databases
-str(datum)
-str(PQL)
-
-# Changing descriptive variables
-
-## AFTER ZONATION, ADD COORDINATES FOR UFOP LAB BASED ON ZONE MIDDLE
-
-datum$ID <- NULL
-datum$Lab <- as.factor(datum$Lab)
 datum$Zones <- as.factor(datum$Zones)
-datum$Longitude <- as.numeric(datum$Longitude)
-datum$Latitude <- as.numeric(datum$Latitude)
+datum$Lab <- as.factor(datum$Lab)
 
-## NAs that were introduced where "-" values was...
+str(datum)
 
-## Known that a lot of the data will have <PQL values when the heavy metal is below limit ...
-## This value is causing a lot of numeric variables to register as characters ...
-## The goal then is to replace the <PQL values first ....
-## Therefore, we need to do some slight cleaning with the PQL limits to make this easier...
-## NOTE: `UFV_1' was changed to `UFV1' in the Excel document to match easier here...
+#### Moran's Maps ####
 
-# Changing character to numerics in PQL
-PQL <- PQL %>% mutate_at(c("UFV1", "UFOP", "CETEC", "UFV_2"), as.numeric)
+mxy <- as.matrix(datum[,c(2,1)])
+rownames(mxy) <- NULL
+s.label(mxy, ppoint.pch = 15, ppoint.col = "darkgreen")
 
-# Change any introduced PQL NA to 0
-PQL[is.na(PQL)] <- 0
+# Spatial Point Data Frame
+sp.data <- SpatialPointsDataFrame(coords = mxy, data = datum[,-c(1:2, 4)])
+s.Spatial(sp.data, nclass = 4)
 
-## In literature, commonly use half of the PQL in the samples which registered heavy metal content below the PQL...
+Arsenic <- as.data.frame(datum$As)
+colnames(Arsenic) <- "Arsenic"
 
-# Changing given PQL values to be the half values we will use
-Elemento <- as.factor(PQL$Elemento)
-PQL <- cbind(Elemento, PQL[,2:ncol(PQL)]/2)
+sp.Ar <- SpatialPointsDataFrame(coords = mxy, data = Arsenic)
+s.Spatial(sp.Ar, ppoint.pch = 15, ppoint.col = "darkgreen")
 
-## Now we are ready to replace <PQL values....
+# Building Spatial Neighborhood on Gabriel Graph
+nbgab <- graph2nb(gabrielneigh(mxy), sym = TRUE)
+s.label(mxy, nb = nbgab, ppoint.pch = 16, 
+        ppoint.col = "black", pnb.edge.col = "red")
 
-# Loop through each relevant column of data frame
-for (col in names(datum[,5:25])) {
-  # Check if the column contains a "<PQL" value
-  if ("<PQL" %in% datum[[col]]) {
-    # Identify where "<PQL" values are
-    index <- which(datum[[col]] == "<PQL", arr.ind = T)
-    for(i in index){
-      # Find the PQL value needed
-      pql_val <- PQL[PQL$Elemento == col, as.character(datum$Lab[i])]
-      # Replace the "<PQL" value with the corresponding PQL value
-      datum[i, col] <- as.character(pql_val)
-    }
-  }
+## Using Gabriel graph for its low percentage of nonzero weights b/c
+## more local relationships expected than global
+
+# Defining Spatial Weighting Matrix
+nb2listw(nbgab)   
+
+distgab <- nbdists(nbgab, mxy)
+fdist <- lapply(distgab, function(x) 1 - x/max(dist(mxy)))
+
+listwgab <- nb2listw(nbgab, glist = fdist)
+listwgab
+
+print(listw2mat(listwgab)[1:10, 1:10], digits = 3) # Checking matrix
+
+# Moran Eigenvector Maps
+mems <- mem(listwgab)
+mems
+
+barplot(attr(mems, "values"), 
+        main = "Eigenvalues of the spatial weighting matrix", cex.main = 0.7)
+
+plot(mems[,c(1, 2, 5, 10, 25, 50)], SpORcoords = mxy)
+
+maps.ar <- s.Spatial(sp.Ar)
+
+# Testing Moran's I
+moranI <- moran.randtest(mems, listwgab, 99)
+moranI
+
+# Moran Coefficient of Spatial Autocorrelation
+MC.lith <- moran.randtest(datum[,-c(1:4)], listwgab, 99)
+MC.lith
+
+mc.bounds <- moran.bounds(listwgab)
+mc.bounds
+
+lith.maps <- s1d.barchart(MC.lith$obs, labels = MC.lith$names, 
+                          plot = FALSE, xlim = 1.1 * mc.bounds, 
+                          paxes.draw = TRUE, pgrid.draw = FALSE)
+addline(lith.maps, v = mc.bounds, 
+        plot = TRUE, pline.col = 'red', pline.lty = 3)
+
+# Decomposing Moran's I
+NP.As <- moranNP.randtest(datum$As, listwgab, nrepet = 999, alter = "two-sided") 
+NP.As
+
+plot(NP.As)
+
+# MULTISPATI
+pca.datum <- dudi.pca(datum[,c(19, 25:43)], scale = TRUE, scannf = FALSE)
+adegraphics::screeplot(pca.datum, scannf = FALSE, main = "Scree Plot")
+
+moran.randtest(pca.datum$li, listw = listwgab)
+ms.datum <- adespatial::multispati(pca.datum, listw = listwgab, scannf = FALSE)
+s.value(mxy, pca.datum$li)
+
+ms.datum <- multispati(pca.datum, listw = listwgab, scannf = F)
+summary(ms.datum)
+
+g.ms.spe <- s.arrow(ms.datum$c1, plot = TRUE)
+g.abund <- s.value(mxy, datum[,c(19, 25, 27, 42)], symbol = "circle", col = c("black", "palegreen4"), 
+                   plegend.drawKey = FALSE, ppoint.cex = 0.4, plot = TRUE)
+p1 <- list(c(0.05, 0.65), c(0.01, 0.25), c(0.74, 0.58), c(0.55, 0.05))
+for (i in 1:4){
+  g.ms.spe <- insert(g.abund[[i]], g.ms.spe, posi = p1[[i]], ratio = 0.25, plot = FALSE)
 }
 
-View(datum)
-
-# Coerce all newly changed columns to be numerics
-datum[,5:25] <- lapply(datum[,5:25], as.numeric)
-
-## Now that the heavy metal contents part of the database is cleaned ...
-## I can focus on cleaning the soil properties part ...
-
-# Remove column separating heavy metal and soil properties (column 25)
-datum <- datum[,-25]
-
-## ph KCl is a character variable, because of "-" token....
-
-# Coerce ph KCL to be numeric
-datum$`pH KCl` <- as.numeric(datum$`pH KCl`)
-
-# NA Values to 0 for datum
-datum[,5:43][is.na(datum[,5:43])] <- 0
-
-# Removing values that did not have a latitude, longitude coordinate 
-datum <- na.omit(datum)
-
-# Final checks for both datasets
-View(datum)
-View(PQL)
-
-str(datum)
-
-## Just in case it's needed for future reference we have:
-## Heavy metal contents are in columns 5:24 ...
-## Soil Properties are in columns 25:43 ....
+g.ms.spe
