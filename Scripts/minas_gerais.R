@@ -584,6 +584,11 @@ p <- spatialRF::plot_optimization(model.spatial)
 
 #### Moran's Maps ####
 
+
+
+
+
+
 # Spatial Dataframe
 prj4string <- "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs"
 my_projection <- st_crs(prj4string)
