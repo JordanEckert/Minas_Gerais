@@ -114,6 +114,8 @@ str(datum)
 ## Heavy metal contents are in columns 5:24 ...
 ## Soil Properties are in columns 25:43 ....
 
+shapefile <- st_read("~/DataspellProjects/Minas_Gerais/Database/Lithology/MinasGerais_lito.shp")
+plot(st_geometry(shapefile))
 
 #### Exploratory Data Analysis ####
 

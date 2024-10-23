@@ -6,6 +6,7 @@ library(readxl)                   # Loading excel dataset
 library(tidyverse)                # Data manipulation
 library(dplyr)                    # Pipe operator
 library(janitor)                  # Clean variable names
+library(ggplot2)                  # Data visualization
 
 # Attach packages - Moran Eigenvector Maps
 library(ade4)
@@ -66,6 +67,9 @@ print(listw2mat(listwgab)[1:10, 1:10], digits = 3) # Checking matrix
 # Moran Eigenvector Maps
 mems <- mem(listwgab)
 mems
+
+# orthobasis <- as.data.frame(mems)
+# write.csv(orthobasis, file = "~/DataspellProjects/Minas_Gerais/Results for Paper/orthobasis.csv")
 
 barplot(attr(mems, "values"), 
         main = "Eigenvalues of the spatial weighting matrix", cex.main = 0.7)
