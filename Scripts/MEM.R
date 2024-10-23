@@ -19,7 +19,7 @@ library(sp)
 ## This is the analysis used for the paper on spatial analysis of the Minas Gerais region
 
 datum <- read.csv("~/DataspellProjects/Minas_Gerais/Database/datum.csv")
-shape <- read.csv("~/DataspellProjects/Minas_Gerais/Database/shape.csv")
+shape <- st_read("~/DataspellProjects/Minas_Gerais/Database/Lithology/MinasGerais_lito.shp")
 
 colnames(datum)[colnames(datum) == "V...."] <- "V_Percent"
 colnames(datum)[colnames(datum) == "m...."] <- "m_Percent"
