@@ -103,19 +103,24 @@ plot(NP.As)
 
 # MULTISPATI
 pca.datum <- dudi.pca(datum[,c(19, 25:43)], scale = TRUE, scannf = FALSE)
-adegraphics::screeplot(pca.datum, scannf = FALSE, main = "Scree Plot")
+adegraphics::screeplot(pca.datum, scannf = FALSE, main = "")
 
 moran.randtest(pca.datum$li, listw = listwgab)
 ms.datum <- adespatial::multispati(pca.datum, listw = listwgab, scannf = FALSE)
-s.value(mxy, pca.datum$li)
+s.value(mxy, pca.datum$li, xlim = c(min(mxy[,1]), max(mxy[,1])), 
+        ylim = c(min(mxy[,2]), max(mxy[,2])), plot = TRUE)
+  
 
 ms.datum <- multispati(pca.datum, listw = listwgab, scannf = F)
 summary(ms.datum)
 
 g.ms.spe <- s.arrow(ms.datum$c1, plot = TRUE)
-g.abund <- s.value(mxy, datum[,c(19, 25, 27, 42)], symbol = "circle", col = c("black", "palegreen4"), 
-                   plegend.drawKey = FALSE, ppoint.cex = 0.4, plot = TRUE)
-p1 <- list(c(0.05, 0.65), c(0.01, 0.25), c(0.74, 0.58), c(0.55, 0.05))
+g.abund <- s.value(mxy, datum[,c(36, 37, 40, 43)], 
+                   plegend.drawKey = FALSE, ppoint.cex = 0.4, 
+                   xlim = c(min(mxy[,1]), max(mxy[,1])), 
+                   ylim = c(min(mxy[,2]), max(mxy[,2])),
+                   plot = TRUE)
+p1 <- list(c(0, 0.55), c(0.65, 0.40), c(0.44, 0.68), c(0.45, 0.05))
 for (i in 1:4){
   g.ms.spe <- insert(g.abund[[i]], g.ms.spe, posi = p1[[i]], ratio = 0.25, plot = FALSE)
 }
