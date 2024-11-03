@@ -120,7 +120,7 @@ g.abund <- s.value(mxy, datum[,c(36, 37, 40, 43)],
                    xlim = c(min(mxy[,1]), max(mxy[,1])), 
                    ylim = c(min(mxy[,2]), max(mxy[,2])),
                    plot = TRUE)
-p1 <- list(c(0, 0.55), c(0.65, 0.40), c(0.44, 0.68), c(0.45, 0.05))
+p1 <- list(c(0, 0.55), c(0.45, 0.15), c(0.44, 0.68), c(0.05, 0.05))
 for (i in 1:4){
   g.ms.spe <- insert(g.abund[[i]], g.ms.spe, posi = p1[[i]], ratio = 0.25, plot = FALSE)
 }

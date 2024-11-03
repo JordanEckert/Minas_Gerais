@@ -7,8 +7,8 @@ library(readr)
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 ## This is the analysis used for the paper on spatial analysis of the Minas Gerais region
 
-datum <- read.csv("~/DataspellProjects/Minas_Gerais/Database/datum.csv")
-shape <- read.csv("~/DataspellProjects/Minas_Gerais/Database/shape.csv")
+datum <- read.csv("./Database/datum.csv")
+shape <- read.csv("./Database/shape.csv")
 
 colnames(datum)[colnames(datum) == "V...."] <- "V_Percent"
 colnames(datum)[colnames(datum) == "m...."] <- "m_Percent"
@@ -110,7 +110,7 @@ model.non.spatial$importance$per.variable %>%
   ggplot2::ylab("Contribution to transferability") + 
   ggplot2::geom_smooth(method = "lm", formula = y ~ x, color = "red4")
 
-## Importance and contribution show very little correlation with each other, 
+# Importance and contribution show very little correlation with each other, 
 ## this indicates that the importance measures seem to capture the same aspects
 ## of the effects of the variables on the model results
 

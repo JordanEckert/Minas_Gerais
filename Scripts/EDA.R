@@ -6,7 +6,9 @@ library(readxl)                   # Loading excel dataset
 library(tidyverse)                # Data manipulation
 library(dplyr)                    # Pipe operator
 library(janitor)                  # Clean variable names
-library(sp)                       # Shape files
+library(sp)                       # Spatial
+library(sf)                       # Shape files
+
 
 # Attach packages - Exploratory Analysis
 library(leaflet)                  # Creating geographic maps
@@ -17,10 +19,10 @@ library(ggplot2)                  # Graphical interface suite
 
 #### Data Cleaning ####
 # Loading main database
-datum <- read_excel("~/DataspellProjects/Minas_Gerais/Database/Database.xlsx", skip = 1)
+datum <- read_excel("./Database/Database.xlsx", skip = 1)
 
 # PQL limits file
-PQL <- read_excel("~/DataspellProjects/Minas_Gerais/Database/PQL.xlsx", skip = 1)
+PQL <- read_excel("./Database/PQL.xlsx", skip = 1)
 PQL <- PQL[-c(26:32),]  # Removing extra information not needed in R
 
 # Checking the structure of the databases
@@ -106,11 +108,11 @@ str(datum)
 ## Heavy metal contents are in columns 5:24 ...
 ## Soil Properties are in columns 25:43 ....
 
-write_csv(datum, "~/DataspellProjects/Minas_Gerais/Database/datum.csv")
+write_csv(datum, "./Database/datum.csv")
 
 # Shape file
-shape <- st_read("~/DataspellProjects/Minas_Gerais/Database/Lithology/MinasGerais_lito.shp")
-write_csv(shape, "~/DataspellProjects/Minas_Gerais/Database/shape.csv")
+shape <- st_read("./Database/Lithology/MinasGerais_lito.shp")
+write_csv(shape, "./Database/shape.csv")
 
 #### Exploratory Data Analysis ####
 
