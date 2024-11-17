@@ -18,8 +18,8 @@ library(sp)
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 ## This is the analysis used for the paper on spatial analysis of the Minas Gerais region
 
-datum <- read.csv("~/DataspellProjects/Minas_Gerais/Database/datum.csv")
-shape <- st_read("~/DataspellProjects/Minas_Gerais/Database/Lithology/MinasGerais_lito.shp")
+datum <- read.csv("./Database/datum.csv")
+shape <- st_read("./Database/Lithology/MinasGerais_lito.shp")
 
 colnames(datum)[colnames(datum) == "V...."] <- "V_Percent"
 colnames(datum)[colnames(datum) == "m...."] <- "m_Percent"
@@ -115,14 +115,14 @@ ms.datum <- multispati(pca.datum, listw = listwgab, scannf = F)
 summary(ms.datum)
 
 g.ms.spe <- s.arrow(ms.datum$c1, plot = TRUE)
-g.abund <- s.value(mxy, datum[,c(36, 37, 40, 43)], 
+g.abund <- s.value(mxy, datum[,c(26, 36, 37, 40, 43)], 
                    plegend.drawKey = FALSE, ppoint.cex = 0.4, 
                    xlim = c(min(mxy[,1]), max(mxy[,1])), 
                    ylim = c(min(mxy[,2]), max(mxy[,2])),
                    plot = TRUE)
-p1 <- list(c(0, 0.55), c(0.45, 0.15), c(0.44, 0.68), c(0.05, 0.05))
-for (i in 1:4){
+p1 <- list(c(0.1,.55), c(0, 0.75), c(0.45, 0.15), c(0.44, 0.68), c(0.05, 0.05))
+for (i in 1:5){
   g.ms.spe <- insert(g.abund[[i]], g.ms.spe, posi = p1[[i]], ratio = 0.25, plot = FALSE)
 }
-
 g.ms.spe
+
