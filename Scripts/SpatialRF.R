@@ -19,7 +19,7 @@ datum$Lab <- as.factor(datum$Lab)
 
 str(datum)
 
-#### Spatial Random Forest ####
+#### Spatial Random Forest Comparison with Non Spatial ####
 
 # It's picky about the column names, so I rename variables in columns 25 to 43 by removing spaces.
 col_indices <- 25:43
@@ -290,7 +290,7 @@ model.spatial$importance$per.variable %>%
 # Local variable importance
 local.importance <- spatialRF::get_importance_local(model.spatial)
 
-# Response Curves - Not Graphically interesting results with data shown
+# Response Curves
 resp_plot <- spatialRF::plot_response_curves(
   model.spatial,
   quantiles = c(0.1, 0.5, 0.9),
@@ -336,11 +336,25 @@ spatialRF::plot_response_curves(
 )
 
 # Response surfaces
-spatialRF::plot_response_surface(
+# Generate the response surface plot
+response_surface_plot <- spatialRF::plot_response_surface(
   model.spatial,
   a = "m_percent",
-  b = "p_h_k_cl"
+  b = "p_h_k_cl",  # Required to get the ggplot object
+  point.size.range = c(1, 4)
 )
+
+# Customize axis titles and theme
+response_surface_plot +
+  xlab("m(%)") +          # Custom X-axis title
+  ylab("pH KCl") +               # Custom Y-axis title
+  ggtitle("Response Surface: Arsenic vs. Soil Properties") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  ) 
 
 # Model Performance
 spatialRF::print_performance(model.spatial)
@@ -377,6 +391,29 @@ p2 <- spatialRF::plot_importance(
   ggplot2::ggtitle("Spatial model")
 
 p1 | p2 
+
+custom_labels <- c(
+  "Spatial Predictors", "Silt", "H + Al", "Latitude", "K+", 
+  "Clay", "CEC", "pH KCl", "V(%)", "Fine Sand", "m(%)", "SOM",
+  "PM", "Mg2+", "Longitude", "SB", "Course Sand", "PREM", "ECEC",
+  "Ca2+", "Al3+", "pH H2O"
+)
+
+custom_labels <- rev(custom_labels)  # Reverse the order of labels
+
+# Base plot with title
+spatialRF::plot_importance(model.spatial, verbose = FALSE) +
+  ggtitle("Spatial model") +
+  scale_y_discrete(labels = custom_labels) +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12)
+  )
+
+# Show plot
+imp_plot
 
 # Model Transferability
 model.spatial <- spatialRF::rf_importance(
