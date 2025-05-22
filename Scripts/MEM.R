@@ -45,6 +45,8 @@ colnames(Arsenic) <- "Arsenic"
 sp.Ar <- SpatialPointsDataFrame(coords = mxy, data = Arsenic)
 s.Spatial(sp.Ar, ppoint.pch = 15, ppoint.col = "darkgreen")
 
+summary(sp.Ar@data)
+
 # Building Spatial Neighborhood on Gabriel Graph
 nbgab <- graph2nb(gabrielneigh(mxy), sym = TRUE)
 s.label(mxy, nb = nbgab, ppoint.pch = 16, 
@@ -116,13 +118,39 @@ summary(ms.datum)
 
 g.ms.spe <- s.arrow(ms.datum$c1, plot = TRUE)
 g.abund <- s.value(mxy, datum[,c(26, 36, 37, 40, 43)], 
-                   plegend.drawKey = FALSE, ppoint.cex = 0.4, 
+                   plegend.drawKey = FALSE, ppoint.cex = .5, 
                    xlim = c(min(mxy[,1]), max(mxy[,1])), 
                    ylim = c(min(mxy[,2]), max(mxy[,2])),
-                   plot = TRUE)
+                   plot = TRUE,
+                   plabels.cex = 1.4,
+                   paxes.cex = 1.2)
 p1 <- list(c(0.1,.55), c(0, 0.75), c(0.45, 0.15), c(0.44, 0.68), c(0.05, 0.05))
 for (i in 1:5){
   g.ms.spe <- insert(g.abund[[i]], g.ms.spe, posi = p1[[i]], ratio = 0.25, plot = FALSE)
 }
+g.ms.spe
+
+### Alternative figure for paper
+g.ms.spe <- s.arrow(ms.datum$c1, 
+                    plabels.cex = 1.6,
+                    paxes.cex = 1.2,
+                    plot = TRUE)
+
+g.abund <- s.value(
+  mxy,
+  datum[,c(26, 37, 42, 43)], 
+  plegend.drawKey = FALSE,
+  ppoint.cex = .45,   # Increased dot size for readability
+  xlim = range(mxy[,1]),
+  ylim = range(mxy[,2]),
+  plot = TRUE
+)
+
+p1 <- list(c(0.05, 0.525), c(0.475, 0), c(0.45, 0.691), c(0.05, 0.005))
+
+for (i in 1:4){
+  g.ms.spe <- insert(g.abund[[i]], g.ms.spe, posi = p1[[i]], ratio = 0.35, plot = FALSE)
+}
+
 g.ms.spe
 

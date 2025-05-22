@@ -150,9 +150,30 @@ title("Correlation Plot of Arsenic and Soil Properties", adj = 0, line = -25)
 
 # Variogram for Arsenic
 vario <- variogram(datum[,19], datum[,1:2])
-plot(vario$dist, vario$gamma, type = "b", pch = 20,
-     xlab = "Distance", ylab = "C(distance)", main = paste("Variogram for Arsenic"))
+# Save current par settings to restore later if needed
+op <- par(no.readonly = TRUE)
 
+# Set margins and mgp (margin line for labels)
+par(mar = c(5, 5, 4, 2), mgp = c(2.5, 0.7, 0)) 
+# mgp[2] controls distance of axis title from axis (default is 1)
+
+# Now plot
+plot(
+  vario$dist, vario$gamma,
+  type = "b",
+  pch = 19,
+  cex = 1.4,
+  lwd = 2,
+  xlab = "Distance",
+  ylab = expression(γ(h)),
+  main = "Empirical Variogram for Arsenic",
+  cex.axis = 1.2,
+  cex.lab = 1.4,
+  cex.main = 1.6
+)
+
+# Optional: restore original settings after
+par(op)
 # Variogram for soil properties
 for(i in 25:43){
   vario <- variogram(datum[,i], datum[,1:2])
@@ -161,9 +182,29 @@ for(i in 25:43){
 }
 
 # Multivariate Variogram for Soil Property - strictly equivalent to summing individual ones
-multi_vario_soil = variogmultiv(datum[,25:43], datum[,1:2])
-plot(multi_vario_soil$d, multi_vario_soil$var,type = 'b', pch = 20, xlab = "Distance", ylab = "C(distance)", main = "Multivariate Variogram for Soil Properties")
+# Save original parameters
+op <- par(no.readonly = TRUE)
 
+# Set margins and adjust mgp to move axis titles inward
+par(mar = c(5, 5, 4, 2), mgp = c(2.5, 0.7, 0))
+
+# Improved plot
+plot(
+  multi_vario_soil$d, multi_vario_soil$var,
+  type = "b",
+  pch = 19,             # Solid points
+  cex = 1.5,            # Bigger points
+  lwd = 2,              # Thicker line
+  xlab = "Distance",
+  ylab = expression(γ(h)),  # Conventional variogram notation
+  main = "Multivariate Variogram for Arsenic and Soil Properties",
+  cex.axis = 1.3,
+  cex.lab = 1.5,
+  cex.main = 1.7
+)
+
+# Restore parameters (optional)
+par(op)
 # Creating arsenic levels variable
 datum$AsLevel <- as.factor(ifelse(datum$As >= 8.0, "High", "Low"))
 
@@ -177,9 +218,18 @@ table(datum$AsLevel)
 as_plot <- ggplot(datum, aes(x = Longitude, y = Latitude)) + 
   geom_point(aes(size = As, color = AsLevel), alpha = 0.7) + 
   scale_size_continuous(range = c(2, 10), name = "Arsenic Value") + 
-  labs(title = "Distribution of Arsenic Values Across Minas Gerais Region",
-       x = "Longitude", y = "Latitude", color = "Arsenic Level") + 
-  theme_minimal()
+  labs(
+    title = "Distribution of Arsenic Values Across Minas Gerais Region",
+    x = "Longitude", y = "Latitude", color = "Arsenic Level"
+  ) + 
+  theme_minimal(base_size = 14) +  # Set overall base font size
+  theme(
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),   # Center and bold title
+    axis.title = element_text(size = 16),     # Axis titles
+    axis.text = element_text(size = 14),      # Tick labels
+    legend.title = element_text(size = 15),   # Legend title
+    legend.text = element_text(size = 13)     # Legend labels
+  )
 
 # Print the scatter plot
 print(as_plot)

@@ -3,6 +3,7 @@ library(spatialRF)                # Spatial Random Forest
 library(kableExtra)               # HTML Tables Exported 
 library(randomForestExplainer)    # Variable Importance
 library(readr)
+library(patchwork)
 
 ## This work is in conjunction with Nedret Billor and J.J. Lelis
 ## This is the analysis used for the paper on spatial analysis of the Minas Gerais region
@@ -39,16 +40,28 @@ predictor_columns <- c("Latitude", "Longitude", colnames(datum)[25:43])
 predictor_columns2 <- c(colnames(datum)[25:43])
 
 # Plot of Moran Maps across thresholds
-spatialRF::plot_training_df_moran(
+moran_plot <- plot_training_df_moran(
   data = datum[,c(19, 25:43)],
   dependent.variable.name = "As",
   predictor.variable.names = predictor_columns2,
   distance.matrix = dist_mat,
-  fill.color = viridis::viridis(
-    100,
-    option = "F",
-    direction = -1), 
-  point.color = "black")
+  fill.color = viridis::viridis(100, option = "F", direction = -1),
+  point.color = "black"
+)
+
+# Modify fonts and legend size
+moran_plot +
+  theme_minimal(base_size = 16) +  # base font size
+  theme(
+    axis.title = element_text(size = 20),
+    axis.text = element_text(size = 14),
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+  ) +
+  labs(
+    x = "Predictor Value",
+    y = "Spatial Autocorrelation (Moran's I)"
+  )
 
 
 ## NOTE: Lower p-values and Moran's I values indicate there is no spatial 
@@ -278,17 +291,30 @@ model.spatial$importance$per.variable %>%
 local.importance <- spatialRF::get_importance_local(model.spatial)
 
 # Response Curves - Not Graphically interesting results with data shown
-spatialRF::plot_response_curves(
+resp_plot <- spatialRF::plot_response_curves(
   model.spatial,
   quantiles = c(0.1, 0.5, 0.9),
   line.color = viridis::viridis(
-    3, #same number of colors as quantiles
-    option = "F", 
+    3,
+    option = "F",
     end = 0.9
   ),
   ncol = 4,
   show.data = FALSE
 )
+
+# Customize for publication
+resp_plot + 
+  theme_minimal(base_size = 14) +  # Increase base font size
+  theme(
+    strip.text = element_text(size = 14, face = "bold"),   # Facet titles
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 12),
+    legend.title = element_text(size = 13),
+    legend.text = element_text(size = 11),
+    plot.title = element_text(size = 16, hjust = 0.5),
+    plot.margin = margin(10, 10, 10, 10)  # Add breathing room
+  )
 
 # Individual Response curves at three different quantiles
 spatialRF::plot_response_curves(
@@ -312,8 +338,8 @@ spatialRF::plot_response_curves(
 # Response surfaces
 spatialRF::plot_response_surface(
   model.spatial,
-  a = "clay",
-  b = "cec"
+  a = "m_percent",
+  b = "p_h_k_cl"
 )
 
 # Model Performance
